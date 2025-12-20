@@ -6,7 +6,7 @@ export const suggestPhysioPlan = async (condition: string, durationWeeks: number
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+    model: "gemini-2.0-flash",
     contents: `Generate a daily physiotherapy plan for a patient with "${condition}" for ${durationWeeks} week at ${CLINIC_CONFIG.name}. 
     
     STRICT MODALITY RULES:
@@ -100,7 +100,7 @@ export const analyzeXrayImage = async (base64Image: string, mimeType: string, cl
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview', // Switched to Flash for higher quota and lower latency
+      model: 'gemini-2.0-flash', // Updated model as requested by user
       contents: {
         parts: [
           {
