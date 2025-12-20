@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { supabase } from '../services/supabaseClient';
+import { supabase, isSupabaseConfigured } from '../services/supabaseClient';
 import { HospitalLogo } from './Icons';
 import { CLINIC_CONFIG } from '../types';
 
@@ -10,18 +9,30 @@ const LoginPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const configured = isSupabaseConfigured();
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!configured) {
+      setError("Database configuration missing. See instructions below.");
+      return;
+    }
+
     setLoading(true);
     setError(null);
     
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (error) {
-      setError(error.message);
+      if (error) {
+        setError(error.message);
+      }
+    } catch (err: any) {
+      setError(err.message || "Failed to reach the authentication server.");
+    } finally {
       setLoading(false);
     }
   };
@@ -46,6 +57,21 @@ const LoginPage: React.FC = () => {
             </p>
           </div>
 
+          {!configured && (
+            <div className="mb-8 p-6 bg-amber-50 border border-amber-100 rounded-[2rem] animate-in fade-in slide-in-from-top-4">
+              <p className="text-amber-800 font-black text-xs uppercase tracking-widest mb-2 flex items-center gap-2">
+                <span className="text-lg">⚠️</span> Configuration Required
+              </p>
+              <p className="text-amber-700 text-[11px] leading-relaxed font-medium">
+                The database connection is not active. Please add the following to your <b>Netlify Environment Variables</b>:
+              </p>
+              <ul className="mt-3 space-y-1">
+                <li className="text-[10px] font-mono bg-amber-100/50 p-1 rounded">VITE_SUPABASE_URL</li>
+                <li className="text-[10px] font-mono bg-amber-100/50 p-1 rounded">VITE_SUPABASE_ANON_KEY</li>
+              </ul>
+            </div>
+          )}
+
           <form onSubmit={handleLogin} className="space-y-6">
             {error && (
               <div className="bg-red-50 border border-red-100 text-red-600 px-4 py-3 rounded-2xl text-xs font-bold animate-in fade-in slide-in-from-top-2">
@@ -58,8 +84,9 @@ const LoginPage: React.FC = () => {
               <input
                 required
                 type="email"
+                disabled={!configured}
                 placeholder="doctor@chandrika.com"
-                className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-medium focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all"
+                className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-medium focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all disabled:opacity-50"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
@@ -70,15 +97,16 @@ const LoginPage: React.FC = () => {
               <input
                 required
                 type="password"
+                disabled={!configured}
                 placeholder="••••••••"
-                className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-medium focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all"
+                className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-medium focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all disabled:opacity-50"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
             </div>
 
             <button
-              disabled={loading}
+              disabled={loading || !configured}
               type="submit"
               className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-2xl shadow-slate-200 hover:bg-indigo-600 transition-all active:scale-[0.98] disabled:opacity-50"
             >
