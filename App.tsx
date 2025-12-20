@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import Dashboard from './components/Dashboard';
 import AddPatientModal from './components/AddPatientModal';
@@ -24,28 +23,17 @@ const App: React.FC = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   useEffect(() => {
-    // Check if variables are loaded
-    if (!process.env.VITE_SUPABASE_URL || !process.env.VITE_SUPABASE_ANON_KEY) {
-      console.error("Configuration Missing");
-      // Don't set error yet, let auth check fail gracefully
-    }
-
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
-
-  useEffect(() => {
+    
+    // Auth Listener
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setIsLoading(false);
     }).catch(err => {
-      console.error("Auth init failed:", err);
+      console.error("Auth initialization failed:", err);
       setConfigError(true);
       setIsLoading(false);
     });
@@ -54,9 +42,14 @@ const App: React.FC = () => {
       setSession(session);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      subscription.unsubscribe();
+    };
   }, []);
 
+  // Fetch data only when session is active
   useEffect(() => {
     if (!session) return;
 
@@ -70,7 +63,7 @@ const App: React.FC = () => {
         setPatients(loadedPatients);
         setFilmCount(loadedFilms);
       } catch (error) {
-        console.error("Data fetch failed", error);
+        console.error("Initial data load failed:", error);
       } finally {
         setIsSyncing(false);
       }
@@ -86,8 +79,13 @@ const App: React.FC = () => {
     setIsSyncing(true);
     try {
       const newPatient = patientData as Patient;
+      // Optimistic Update
       setPatients(prev => [...prev, newPatient]);
       await apiService.addPatient(newPatient);
+    } catch (e) {
+      // Revert if failed
+      const reloaded = await apiService.getPatients();
+      setPatients(reloaded);
     } finally {
       setIsSyncing(false);
       setIsAddModalOpen(false);
@@ -103,6 +101,8 @@ const App: React.FC = () => {
       );
       setPatients(updatedList);
       await apiService.savePatients(updatedList);
+    } catch (e) {
+      console.error("Save failed:", e);
     } finally {
       setIsSyncing(false);
     }
@@ -158,11 +158,11 @@ const App: React.FC = () => {
           <div className="w-20 h-20 bg-red-500/20 text-red-500 rounded-3xl flex items-center justify-center mx-auto mb-6">
             <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
           </div>
-          <h1 className="text-white text-2xl font-black mb-4">Configuration Missing</h1>
+          <h1 className="text-white text-2xl font-black mb-4">Database Conflict</h1>
           <p className="text-slate-400 text-sm leading-relaxed mb-8">
-            The application cannot connect to the database. Please ensure <code className="bg-slate-800 px-2 py-1 rounded">VITE_SUPABASE_URL</code> and <code className="bg-slate-800 px-2 py-1 rounded">VITE_SUPABASE_ANON_KEY</code> are set in your Netlify environment variables.
+            The portal is unable to communicate with the secure vault. Please check your Supabase tables and RLS policies.
           </p>
-          <button onClick={() => window.location.reload()} className="px-8 py-3 bg-white text-slate-900 rounded-2xl font-black uppercase tracking-widest text-[11px]">Retry Connection</button>
+          <button onClick={() => window.location.reload()} className="px-8 py-3 bg-white text-slate-900 rounded-2xl font-black uppercase tracking-widest text-[11px]">Reconnect Gateway</button>
         </div>
       </div>
     );
@@ -177,7 +177,7 @@ const App: React.FC = () => {
         </div>
         <div className="text-center">
           <p className="text-[#0F172A] font-black text-xl uppercase tracking-tighter">{CLINIC_CONFIG.name}</p>
-          <p className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.3em] mt-1">Initializing Secure Portal</p>
+          <p className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.3em] mt-1">Authenticating Credentials</p>
         </div>
       </div>
     );
@@ -201,11 +201,19 @@ const App: React.FC = () => {
                   <span className="text-2xl font-black tracking-tighter text-[#0F172A] uppercase">{CLINIC_CONFIG.name.split(' ')[0]}</span>
                   <span className="text-2xl font-light tracking-[0.1em] text-[#2563EB] uppercase">{CLINIC_CONFIG.name.split(' ').slice(1).join(' ')}</span>
                 </div>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
-                  <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-                    {isOnline ? 'System Live' : 'Offline Mode'}
-                  </span>
+                <div className="flex items-center gap-3 mt-0.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`}></span>
+                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                      {isOnline ? 'Secure Link' : 'Offline'}
+                    </span>
+                  </div>
+                  {isSyncing && (
+                    <div className="flex items-center gap-1.5">
+                       <span className="w-2 h-2 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></span>
+                       <span className="text-[9px] font-black uppercase tracking-widest text-indigo-500">Syncing...</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -213,10 +221,10 @@ const App: React.FC = () => {
           <div className="flex items-center gap-6">
             <div className="text-right hidden sm:block">
               <p className="text-sm font-black text-[#0F172A] uppercase tracking-tight">{CLINIC_CONFIG.clinicianName}</p>
-              <button onClick={handleLogout} className="text-[9px] font-bold text-red-500 uppercase tracking-widest mt-1">Log Out</button>
+              <button onClick={handleLogout} className="text-[9px] font-bold text-red-500 hover:text-red-700 uppercase tracking-widest mt-1">Log Out</button>
             </div>
-            <div className="w-12 h-12 rounded-2xl bg-[#F8FAFC] border border-slate-100 shadow-inner overflow-hidden">
-               <img className="w-full h-full" src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${session?.user?.email}&backgroundColor=b6e3f4`} alt="Clinician" />
+            <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 shadow-inner overflow-hidden flex items-center justify-center">
+               <img className="w-10 h-10 rounded-xl" src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${session?.user?.email}&backgroundColor=b6e3f4`} alt="Clinician" />
             </div>
           </div>
         </div>
