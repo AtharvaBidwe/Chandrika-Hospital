@@ -1,8 +1,11 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// Connection details provided for AtharvaBidwe's Project
-const supabaseUrl = 'https://cphhtyhluyzoegzdqthz.supabase.co';
-const supabaseAnonKey = 'sb_publishable_Wa-nCkuJ4YcYyqu8AaLB3w_dsRSQM_x';
+const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || '';
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.warn("Supabase configuration missing! Check Netlify Environment Variables.");
+}
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);

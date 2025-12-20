@@ -17,13 +17,19 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [configError, setConfigError] = useState(false);
   
   const [view, setView] = useState<'dashboard' | 'planner' | 'xray'>('dashboard');
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
-  // Network Status Listener
   useEffect(() => {
+    // Check if variables are loaded
+    if (!process.env.VITE_SUPABASE_URL || !process.env.VITE_SUPABASE_ANON_KEY) {
+      console.error("Configuration Missing");
+      // Don't set error yet, let auth check fail gracefully
+    }
+
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
     window.addEventListener('online', handleOnline);
@@ -34,27 +40,28 @@ const App: React.FC = () => {
     };
   }, []);
 
-  // Auth Listener
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      if (!session) setIsLoading(false);
+      setIsLoading(false);
+    }).catch(err => {
+      console.error("Auth init failed:", err);
+      setConfigError(true);
+      setIsLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
-      if (!session) setIsLoading(false);
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  // Initial Data Load
   useEffect(() => {
     if (!session) return;
 
     const initData = async () => {
-      setIsLoading(true);
+      setIsSyncing(true);
       try {
         const [loadedPatients, loadedFilms] = await Promise.all([
           apiService.getPatients(),
@@ -63,9 +70,9 @@ const App: React.FC = () => {
         setPatients(loadedPatients);
         setFilmCount(loadedFilms);
       } catch (error) {
-        console.error("Critical: Data fetch failed", error);
+        console.error("Data fetch failed", error);
       } finally {
-        setIsLoading(false);
+        setIsSyncing(false);
       }
     };
     initData();
@@ -144,11 +151,21 @@ const App: React.FC = () => {
     }
   };
 
-  const selectedPatient = patients.find(p => p.id === selectedPatientId);
-
-  // Auth Guard
-  if (!session && !isLoading) {
-    return <LoginPage />;
+  if (configError) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 text-center">
+        <div className="max-w-md">
+          <div className="w-20 h-20 bg-red-500/20 text-red-500 rounded-3xl flex items-center justify-center mx-auto mb-6">
+            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+          </div>
+          <h1 className="text-white text-2xl font-black mb-4">Configuration Missing</h1>
+          <p className="text-slate-400 text-sm leading-relaxed mb-8">
+            The application cannot connect to the database. Please ensure <code className="bg-slate-800 px-2 py-1 rounded">VITE_SUPABASE_URL</code> and <code className="bg-slate-800 px-2 py-1 rounded">VITE_SUPABASE_ANON_KEY</code> are set in your Netlify environment variables.
+          </p>
+          <button onClick={() => window.location.reload()} className="px-8 py-3 bg-white text-slate-900 rounded-2xl font-black uppercase tracking-widest text-[11px]">Retry Connection</button>
+        </div>
+      </div>
+    );
   }
 
   if (isLoading) {
@@ -160,43 +177,34 @@ const App: React.FC = () => {
         </div>
         <div className="text-center">
           <p className="text-[#0F172A] font-black text-xl uppercase tracking-tighter">{CLINIC_CONFIG.name}</p>
-          <p className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.3em] mt-1">Securing Clinical Environment</p>
+          <p className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.3em] mt-1">Initializing Secure Portal</p>
         </div>
       </div>
     );
   }
 
+  if (!session) {
+    return <LoginPage />;
+  }
+
+  const selectedPatient = patients.find(p => p.id === selectedPatientId);
+
   return (
     <div className="min-h-screen bg-[#F8FAFC] pb-24">
-      {!isOnline && (
-        <div className="bg-red-600 text-white text-[10px] font-black uppercase tracking-[0.3em] py-2 text-center animate-pulse sticky top-0 z-[60]">
-          System Offline — Working on Local Cache
-        </div>
-      )}
-      
       <nav className="bg-white border-b border-slate-100 sticky top-0 z-40 backdrop-blur-md bg-white/90">
         <div className="max-w-6xl mx-auto px-4 h-20 flex items-center justify-between">
           <div className="flex items-center gap-6">
-            <div 
-              className="flex items-center gap-5 cursor-pointer group" 
-              onClick={() => setView('dashboard')}
-            >
-              <div className="shadow-lg group-hover:scale-105 transition-transform duration-300">
-                <HospitalLogo />
-              </div>
+            <div className="flex items-center gap-5 cursor-pointer group" onClick={() => setView('dashboard')}>
+              <HospitalLogo />
               <div className="flex flex-col">
                 <div className="flex items-baseline gap-2">
-                  <span className="text-2xl font-black tracking-tighter text-[#0F172A]">
-                    {CLINIC_CONFIG.name.split(' ')[0].toUpperCase()}
-                  </span>
-                  <span className="text-2xl font-light tracking-[0.1em] text-[#2563EB]">
-                    {CLINIC_CONFIG.name.split(' ').slice(1).join(' ').toUpperCase()}
-                  </span>
+                  <span className="text-2xl font-black tracking-tighter text-[#0F172A] uppercase">{CLINIC_CONFIG.name.split(' ')[0]}</span>
+                  <span className="text-2xl font-light tracking-[0.1em] text-[#2563EB] uppercase">{CLINIC_CONFIG.name.split(' ').slice(1).join(' ')}</span>
                 </div>
                 <div className="flex items-center gap-2 mt-0.5">
-                  <span className={`w-1.5 h-1.5 rounded-full ${isSyncing ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`}></span>
-                  <span className={`text-[9px] font-black uppercase tracking-widest ${isSyncing ? 'text-emerald-500' : 'text-slate-400'}`}>
-                    {isSyncing ? 'Encrypted Syncing...' : 'Cloud Verified'}
+                  <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
+                  <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                    {isOnline ? 'System Live' : 'Offline Mode'}
                   </span>
                 </div>
               </div>
@@ -205,19 +213,10 @@ const App: React.FC = () => {
           <div className="flex items-center gap-6">
             <div className="text-right hidden sm:block">
               <p className="text-sm font-black text-[#0F172A] uppercase tracking-tight">{CLINIC_CONFIG.clinicianName}</p>
-              <button 
-                onClick={handleLogout}
-                className="text-[9px] font-bold text-red-500 uppercase tracking-widest mt-1 opacity-80 hover:opacity-100 transition-opacity"
-              >
-                End Session
-              </button>
+              <button onClick={handleLogout} className="text-[9px] font-bold text-red-500 uppercase tracking-widest mt-1">Log Out</button>
             </div>
-            <div className="w-12 h-12 rounded-2xl bg-[#F8FAFC] border border-slate-100 shadow-inner overflow-hidden p-0.5">
-              <img 
-                className="w-full h-full rounded-xl bg-slate-200"
-                src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${session?.user?.email || 'doctor'}&backgroundColor=b6e3f4`} 
-                alt="Clinician" 
-              />
+            <div className="w-12 h-12 rounded-2xl bg-[#F8FAFC] border border-slate-100 shadow-inner overflow-hidden">
+               <img className="w-full h-full" src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${session?.user?.email}&backgroundColor=b6e3f4`} alt="Clinician" />
             </div>
           </div>
         </div>
@@ -260,17 +259,6 @@ const App: React.FC = () => {
         onClose={() => setIsAddModalOpen(false)}
         onAdd={handleAddPatient}
       />
-
-      <footer className="fixed bottom-6 left-0 right-0 pointer-events-none flex justify-center z-50">
-        <div className="bg-[#0F172A]/90 text-white/80 px-8 py-3 rounded-2xl text-[9px] font-black uppercase tracking-[0.4em] shadow-2xl border border-white/5 backdrop-blur-xl flex items-center gap-4">
-          <span className="flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-red-500 shadow-[0_0_8px_red]'}`}></span>
-            {isOnline ? 'Network Secured' : 'Offline Mode'}
-          </span>
-          <span className="w-1 h-1 bg-white/20 rounded-full"></span>
-          CHANDRIKA HOSPITAL OPS V1.0
-        </div>
-      </footer>
     </div>
   );
 };
