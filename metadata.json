@@ -1,0 +1,7 @@
+{
+  "name": "Chandrika Hospital",
+  "description": "A professional physiotherapy planner and progress tracker for Chandrika Hospital with AI-assisted treatment planning, daily session management, and visual progress analytics.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
