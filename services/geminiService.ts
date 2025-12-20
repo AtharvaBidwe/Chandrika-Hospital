@@ -100,7 +100,7 @@ export const analyzeXrayImage = async (base64Image: string, mimeType: string, cl
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview', // Upgraded to Pro for medical reasoning
+      model: 'gemini-3-flash-preview', // Switched to Flash for higher quota and lower latency
       contents: {
         parts: [
           {
