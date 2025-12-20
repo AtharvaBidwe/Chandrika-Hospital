@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { Patient, ServiceType, DayOfWeek } from '../types';
+import { Patient, ServiceType } from '../types';
 import { ActivityIcon, BoneIcon } from './Icons';
 
 interface AddPatientModalProps {
@@ -8,8 +7,6 @@ interface AddPatientModalProps {
   onClose: () => void;
   onAdd: (patient: Partial<Patient>) => void;
 }
-
-const DAYS: DayOfWeek[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 const AddPatientModal: React.FC<AddPatientModalProps> = ({ isOpen, onClose, onAdd }) => {
   const [formData, setFormData] = useState({
@@ -19,29 +16,19 @@ const AddPatientModal: React.FC<AddPatientModalProps> = ({ isOpen, onClose, onAd
     address: '',
     condition: '',
     startDate: new Date().toISOString().split('T')[0],
-    durationWeeks: '2',
+    durationDays: '10',
     serviceType: 'physiotherapy' as ServiceType,
-    selectedDays: DAYS.slice(0, 6) // Default Mon-Sat
   });
 
   if (!isOpen) return null;
-
-  const toggleDay = (day: DayOfWeek) => {
-    setFormData(prev => ({
-      ...prev,
-      selectedDays: prev.selectedDays.includes(day)
-        ? prev.selectedDays.filter(d => d !== day)
-        : [...prev.selectedDays, day]
-    }));
-  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
     const start = new Date(formData.startDate);
-    const weeks = parseInt(formData.durationWeeks) || 1;
+    const days = parseInt(formData.durationDays) || 1;
     const end = new Date(start);
-    end.setDate(start.getDate() + (weeks * 7) - 1);
+    end.setDate(start.getDate() + days - 1);
 
     onAdd({
       ...formData,
@@ -50,6 +37,7 @@ const AddPatientModal: React.FC<AddPatientModalProps> = ({ isOpen, onClose, onAd
       status: 'active',
       endDate: end.toISOString().split('T')[0],
       dailyPlans: [],
+      selectedDays: [], // No longer used for filtering, but kept for type compatibility
       xrayData: formData.serviceType === 'x-ray' ? {
         issue: '',
         bodyParts: [],
@@ -65,9 +53,8 @@ const AddPatientModal: React.FC<AddPatientModalProps> = ({ isOpen, onClose, onAd
       address: '',
       condition: '', 
       startDate: new Date().toISOString().split('T')[0], 
-      durationWeeks: '2',
-      serviceType: 'physiotherapy',
-      selectedDays: DAYS.slice(0, 6)
+      durationDays: '10',
+      serviceType: 'physiotherapy'
     });
   };
 
@@ -135,31 +122,15 @@ const AddPatientModal: React.FC<AddPatientModalProps> = ({ isOpen, onClose, onAd
           </div>
 
           {formData.serviceType === 'physiotherapy' && (
-            <div className="space-y-6 animate-in slide-in-from-top-4 duration-500">
+            <div className="animate-in slide-in-from-top-4 duration-500">
               <div className="grid grid-cols-2 gap-6">
                 <div>
                   <label className={labelClasses}>Plan Start Date</label>
                   <input required type="date" className={inputClasses} value={formData.startDate} onChange={(e) => setFormData({ ...formData, startDate: e.target.value })} />
                 </div>
                 <div>
-                  <label className={labelClasses}>Treatment Course (Weeks)</label>
-                  <input required type="number" min="1" className={inputClasses} value={formData.durationWeeks} onChange={(e) => setFormData({ ...formData, durationWeeks: e.target.value })} />
-                </div>
-              </div>
-
-              <div>
-                <label className={labelClasses}>Recurring Treatment Days</label>
-                <div className="flex flex-wrap gap-2">
-                  {DAYS.map(day => (
-                    <button
-                      key={day}
-                      type="button"
-                      onClick={() => toggleDay(day)}
-                      className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${formData.selectedDays.includes(day) ? 'bg-slate-900 border-slate-900 text-white shadow-lg' : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200'}`}
-                    >
-                      {day.substring(0, 3)}
-                    </button>
-                  ))}
+                  <label className={labelClasses}>Treatment Course (Days)</label>
+                  <input required type="number" min="1" className={inputClasses} value={formData.durationDays} onChange={(e) => setFormData({ ...formData, durationDays: e.target.value })} />
                 </div>
               </div>
             </div>

@@ -1,7 +1,5 @@
-
 import React, { useState } from 'react';
-import { Patient, TherapySession, DailyPlan, DayOfWeek } from '../types';
-// Fixed: Added missing ActivityIcon import
+import { Patient, TherapySession, DailyPlan } from '../types';
 import { ClockIcon, CheckCircleIcon, XCircleIcon, PhoneIcon, HistoryIcon, ActivityIcon } from './Icons';
 import { suggestPhysioPlan } from '../services/geminiService';
 
@@ -30,18 +28,25 @@ const PlannerView: React.FC<PlannerViewProps> = ({ patient, onUpdatePlan, onBack
     const dates = [];
     let current = new Date(start);
     
-    while (current <= end) {
-      const dayName = current.toLocaleDateString('en-US', { weekday: 'long' }) as DayOfWeek;
-      // Filter by clinician's selected treatment days
-      if (patient.selectedDays.includes(dayName)) {
-        dates.push(new Date(current).toISOString().split('T')[0]);
-      }
+    // Safety check to prevent infinite loops if dates are invalid
+    let safetyCounter = 0;
+    while (current <= end && safetyCounter < 365) {
+      dates.push(new Date(current).toISOString().split('T')[0]);
       current.setDate(current.getDate() + 1);
+      safetyCounter++;
     }
     return dates;
   };
 
   const dates = generateDateRange();
+
+  // If the currently selected date is not in the generated range (e.g. range starts in the future),
+  // default to the first date in the range.
+  React.useEffect(() => {
+    if (dates.length > 0 && !dates.includes(selectedDate)) {
+      setSelectedDate(dates[0]);
+    }
+  }, [patient.startDate, patient.endDate]);
 
   const handleAddSession = (date: string) => {
     const newSession: TherapySession = {
@@ -106,7 +111,10 @@ const PlannerView: React.FC<PlannerViewProps> = ({ patient, onUpdatePlan, onBack
 
   const handleSuggestAI = async () => {
     setIsAiLoading(true);
-    const aiSuggestion = await suggestPhysioPlan(patient.condition);
+    // Determine treatment duration in days for the AI
+    const durationDays = dates.length;
+    const aiSuggestion = await suggestPhysioPlan(patient.condition, Math.ceil(durationDays / 7));
+    
     if (aiSuggestion && aiSuggestion.length > 0) {
       let updatedPlans = [...patient.dailyPlans];
       const startIndex = dates.indexOf(selectedDate);
