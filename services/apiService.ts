@@ -1,3 +1,4 @@
+
 import { Patient } from '../types';
 import { supabase } from './supabaseClient';
 
@@ -91,7 +92,6 @@ export const apiService = {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return this.getPatients();
 
-      // Simple partial update map
       const dbUpdates: any = {};
       if (updates.status) dbUpdates.status = updates.status;
       if (updates.condition) dbUpdates.condition = updates.condition;
@@ -107,6 +107,24 @@ export const apiService = {
     } catch (e) {
       console.error("Update Status Failed:", e);
       return this.getPatients();
+    }
+  },
+
+  async deletePatient(patientId: string): Promise<void> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Unauthorized");
+
+      const { error } = await supabase
+        .from('patients')
+        .delete()
+        .eq('id', patientId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+    } catch (e) {
+      console.error("Delete Patient Failed:", e);
+      throw e;
     }
   },
 

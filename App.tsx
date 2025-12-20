@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import Dashboard from './components/Dashboard';
 import AddPatientModal from './components/AddPatientModal';
@@ -71,7 +72,6 @@ const App: React.FC = () => {
     setIsSyncing(true);
     try {
       const newPatient = patientData as Patient;
-      // Prepend to local state for instant UI update
       setPatients(prev => [newPatient, ...prev]);
       await apiService.addPatient(newPatient);
       setIsAddModalOpen(false);
@@ -80,6 +80,28 @@ const App: React.FC = () => {
       await refreshData();
     } finally {
       setIsSyncing(false);
+    }
+  };
+
+  const handleDeletePatient = async (patientId: string) => {
+    const patientToDelete = patients.find(p => p.id === patientId);
+    if (!patientToDelete) return;
+
+    if (window.confirm(`Are you sure you want to completely delete the record for "${patientToDelete.name}"? This action cannot be undone.`)) {
+      setIsSyncing(true);
+      try {
+        setPatients(prev => prev.filter(p => p.id !== patientId));
+        await apiService.deletePatient(patientId);
+        if (selectedPatientId === patientId) {
+          setView('dashboard');
+          setSelectedPatientId(null);
+        }
+      } catch (e) {
+        alert("Failed to delete patient. Please try again.");
+        await refreshData();
+      } finally {
+        setIsSyncing(false);
+      }
     }
   };
 
@@ -194,6 +216,7 @@ const App: React.FC = () => {
               setView(p.serviceType === 'x-ray' ? 'xray' : 'planner');
             }}
             onUpdatePatientStatus={handleUpdatePatientStatus}
+            onDeletePatient={handleDeletePatient}
           />
         ) : (
           selectedPatient && (
