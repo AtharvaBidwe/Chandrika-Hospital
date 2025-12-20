@@ -57,7 +57,7 @@ export const analyzePainPatterns = async (conditions: string[]) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+    model: "gemini-2.0-flash",
     contents: `Analyze these patient conditions: ${conditions.join(", ")}. 
     Categorize them into exactly these 5 pain types: 'Neuropathic', 'Mechanical', 'Inflammatory', 'Post-Surgical', 'Chronic/Central'.
     Return the count for each category based on the input list. If a condition fits multiple, pick the most dominant physiological cause.`,
@@ -100,7 +100,7 @@ export const analyzeXrayImage = async (base64Image: string, mimeType: string, cl
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash', // Updated model as requested by user
+      model: 'gemini-3-flash-preview', // Updated model as requested by user
       contents: {
         parts: [
           {

@@ -4,21 +4,23 @@ import React from 'react';
 export const HospitalLogo = () => {
   return (
     <svg width="40" height="40" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-      {/* Premium Super-Ellipse Background */}
       <rect width="100" height="100" rx="28" fill="#0F172A" />
-      
-      {/* Decorative Accent Ring */}
       <circle cx="50" cy="50" r="32" stroke="#2563EB" strokeWidth="4" strokeDasharray="10 5" opacity="0.4" />
-      
-      {/* Precision Medical Cross */}
       <rect x="44" y="28" width="12" height="44" rx="2" fill="white" />
       <rect x="28" y="44" width="44" height="12" rx="2" fill="white" />
-      
-      {/* Vitality Dot */}
       <circle cx="70" cy="30" r="6" fill="#38BDF8" />
     </svg>
   );
 };
+
+export const XrayIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="3" width="18" height="18" rx="2"/>
+    <path d="M7 7h.01"/><path d="M17 7h.01"/><path d="M7 17h.01"/><path d="M17 17h.01"/>
+    <path d="M10 10c1 1 3 1 4 0"/><path d="M10 14c1-1 3-1 4 0"/>
+    <path d="M12 7v10"/>
+  </svg>
+);
 
 export const UserPlusIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
@@ -69,7 +71,10 @@ export const DownloadIcon = () => (
 );
 
 export const ScansIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
+    <circle cx="12" cy="12" r="3"/><path d="M12 8v8"/><path d="M8 12h8"/>
+  </svg>
 );
 
 export const BoneIcon = () => (

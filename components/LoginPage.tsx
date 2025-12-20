@@ -1,9 +1,14 @@
+
 import React, { useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../services/supabaseClient';
 import { HospitalLogo } from './Icons';
 import { CLINIC_CONFIG } from '../types';
 
-const LoginPage: React.FC = () => {
+interface LoginPageProps {
+  onDemoLogin?: () => void;
+}
+
+const LoginPage: React.FC<LoginPageProps> = ({ onDemoLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -14,7 +19,7 @@ const LoginPage: React.FC = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!configured) {
-      setError("Database configuration missing. See instructions below.");
+      onDemoLogin?.();
       return;
     }
 
@@ -53,26 +58,28 @@ const LoginPage: React.FC = () => {
               {CLINIC_CONFIG.name}
             </h1>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.4em] mt-2">
-              Clinical Operating System v1.0
+              Clinical Operating System v1.2
             </p>
           </div>
 
           {!configured && (
-            <div className="mb-8 p-6 bg-amber-50 border border-amber-100 rounded-[2rem] animate-in fade-in slide-in-from-top-4">
-              <p className="text-amber-800 font-black text-xs uppercase tracking-widest mb-2 flex items-center gap-2">
-                <span className="text-lg">⚠️</span> Configuration Required
+            <div className="mb-8 p-6 bg-indigo-50 border border-indigo-100 rounded-[2rem] animate-in fade-in slide-in-from-top-4">
+              <p className="text-indigo-800 font-black text-[10px] uppercase tracking-widest mb-2 flex items-center gap-2">
+                <span className="text-lg">✨</span> Preview Mode Active
               </p>
-              <p className="text-amber-700 text-[11px] leading-relaxed font-medium">
-                The database connection is not active. Please add the following to your <b>Netlify Environment Variables</b>:
+              <p className="text-indigo-700 text-[11px] leading-relaxed font-medium">
+                Database keys missing. You can continue in <b>Demo Mode</b>. All data will be saved locally in your browser.
               </p>
-              <ul className="mt-3 space-y-1">
-                <li className="text-[10px] font-mono bg-amber-100/50 p-1 rounded">VITE_SUPABASE_URL</li>
-                <li className="text-[10px] font-mono bg-amber-100/50 p-1 rounded">VITE_SUPABASE_ANON_KEY</li>
-              </ul>
+              <button 
+                onClick={onDemoLogin}
+                className="mt-4 w-full py-3 bg-indigo-600 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-indigo-100"
+              >
+                Launch Clinical Demo
+              </button>
             </div>
           )}
 
-          <form onSubmit={handleLogin} className="space-y-6">
+          <form onSubmit={handleLogin} className={`space-y-6 ${!configured ? 'opacity-40 grayscale pointer-events-none' : ''}`}>
             {error && (
               <div className="bg-red-50 border border-red-100 text-red-600 px-4 py-3 rounded-2xl text-xs font-bold animate-in fade-in slide-in-from-top-2">
                 {error}
@@ -84,9 +91,8 @@ const LoginPage: React.FC = () => {
               <input
                 required
                 type="email"
-                disabled={!configured}
                 placeholder="doctor@chandrika.com"
-                className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-medium focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all disabled:opacity-50"
+                className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-medium focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
@@ -97,18 +103,17 @@ const LoginPage: React.FC = () => {
               <input
                 required
                 type="password"
-                disabled={!configured}
                 placeholder="••••••••"
-                className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-medium focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all disabled:opacity-50"
+                className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-medium focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
             </div>
 
             <button
-              disabled={loading || !configured}
+              disabled={loading}
               type="submit"
-              className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-2xl shadow-slate-200 hover:bg-indigo-600 transition-all active:scale-[0.98] disabled:opacity-50"
+              className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-2xl shadow-slate-200 hover:bg-indigo-600 transition-all active:scale-[0.98]"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
@@ -127,10 +132,6 @@ const LoginPage: React.FC = () => {
             </p>
           </div>
         </div>
-
-        <p className="text-center mt-8 text-[10px] text-slate-400 font-bold uppercase tracking-[0.3em]">
-          Integrated Clinical Security Gateway
-        </p>
       </div>
     </div>
   );

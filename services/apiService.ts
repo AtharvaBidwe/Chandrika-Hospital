@@ -1,6 +1,9 @@
 
 import { Patient } from '../types';
-import { supabase } from './supabaseClient';
+import { supabase, isSupabaseConfigured } from './supabaseClient';
+
+const LOCAL_STORAGE_KEY = 'chandrika_demo_patients';
+const LOCAL_FILM_KEY = 'chandrika_demo_films';
 
 // Helper to map DB snake_case to JS camelCase
 const mapFromDb = (db: any): Patient => ({
@@ -34,11 +37,17 @@ const mapToDb = (p: Patient, userId: string) => ({
   end_date: p.endDate,
   selected_days: p.selectedDays,
   daily_plans: p.dailyPlans,
-  xray_data: p.xrayData
+  xray_data: p.xrayData,
+  created_at: new Date().toISOString()
 });
 
 export const apiService = {
   async getPatients(): Promise<Patient[]> {
+    if (!isSupabaseConfigured()) {
+      const local = localStorage.getItem(LOCAL_STORAGE_KEY);
+      return local ? JSON.parse(local) : [];
+    }
+
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return [];
@@ -58,6 +67,12 @@ export const apiService = {
   },
 
   async addPatient(patient: Patient): Promise<void> {
+    if (!isSupabaseConfigured()) {
+      const patients = await this.getPatients();
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify([patient, ...patients]));
+      return;
+    }
+
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Unauthorized");
@@ -73,6 +88,11 @@ export const apiService = {
   },
 
   async savePatients(patients: Patient[]): Promise<void> {
+    if (!isSupabaseConfigured()) {
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(patients));
+      return;
+    }
+
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Unauthorized");
@@ -88,6 +108,13 @@ export const apiService = {
   },
 
   async updatePatient(patientId: string, updates: Partial<Patient>): Promise<Patient[]> {
+    if (!isSupabaseConfigured()) {
+      const patients = await this.getPatients();
+      const updated = patients.map(p => p.id === patientId ? { ...p, ...updates } : p);
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
+      return updated;
+    }
+
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return this.getPatients();
@@ -111,6 +138,12 @@ export const apiService = {
   },
 
   async deletePatient(patientId: string): Promise<void> {
+    if (!isSupabaseConfigured()) {
+      const patients = await this.getPatients();
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(patients.filter(p => p.id !== patientId)));
+      return;
+    }
+
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Unauthorized");
@@ -129,6 +162,11 @@ export const apiService = {
   },
 
   async getFilmCount(): Promise<number> {
+    if (!isSupabaseConfigured()) {
+      const count = localStorage.getItem(LOCAL_FILM_KEY);
+      return count ? parseInt(count) : 50;
+    }
+
     try {
       const { data, error } = await supabase.from('clinical_settings').select('value').eq('key', 'film_count').single();
       if (error) return 50;
@@ -139,6 +177,11 @@ export const apiService = {
   },
 
   async updateFilmCount(count: number): Promise<void> {
+    if (!isSupabaseConfigured()) {
+      localStorage.setItem(LOCAL_FILM_KEY, count.toString());
+      return;
+    }
+
     try {
       await supabase.from('clinical_settings').upsert({ key: 'film_count', value: count.toString() });
     } catch (e) {

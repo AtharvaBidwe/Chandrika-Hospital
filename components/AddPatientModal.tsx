@@ -1,12 +1,36 @@
+
 import React, { useState } from 'react';
 import { Patient, ServiceType } from '../types';
-import { ActivityIcon, BoneIcon } from './Icons';
+import { ActivityIcon, XrayIcon } from './Icons';
 
 interface AddPatientModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAdd: (patient: Partial<Patient>) => void;
 }
+
+const RADIOLOGY_REGIONS = [
+  {
+    name: "Head & Spine",
+    parts: ["Skull", "Sinuses", "Cervical Spine", "Thoracic Spine", "Lumbar Spine"],
+    bilateral: false
+  },
+  {
+    name: "Torso",
+    parts: ["Chest (PA/Lat)", "Abdomen (KUB)", "Pelvis", "Ribs"],
+    bilateral: true
+  },
+  {
+    name: "Upper Limb",
+    parts: ["Shoulder", "Humerus", "Elbow", "Forearm", "Wrist", "Hand"],
+    bilateral: true
+  },
+  {
+    name: "Lower Limb",
+    parts: ["Hip", "Femur", "Knee", "Leg", "Ankle", "Foot"],
+    bilateral: true
+  }
+];
 
 const AddPatientModal: React.FC<AddPatientModalProps> = ({ isOpen, onClose, onAdd }) => {
   const [formData, setFormData] = useState({
@@ -20,7 +44,16 @@ const AddPatientModal: React.FC<AddPatientModalProps> = ({ isOpen, onClose, onAd
     serviceType: 'physiotherapy' as ServiceType,
   });
 
+  const [selectedProjections, setSelectedProjections] = useState<string[]>([]);
+
   if (!isOpen) return null;
+
+  const toggleProjection = (part: string, side?: 'L' | 'R') => {
+    const label = side ? `${part} (${side})` : part;
+    setSelectedProjections(prev => 
+      prev.includes(label) ? prev.filter(p => p !== label) : [...prev, label]
+    );
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,25 +70,21 @@ const AddPatientModal: React.FC<AddPatientModalProps> = ({ isOpen, onClose, onAd
       status: 'active',
       endDate: end.toISOString().split('T')[0],
       dailyPlans: [],
-      selectedDays: [], // No longer used for filtering, but kept for type compatibility
+      selectedDays: [], 
       xrayData: formData.serviceType === 'x-ray' ? {
-        issue: '',
-        bodyParts: [],
+        issue: formData.condition,
+        bodyParts: selectedProjections,
         status: 'ordered',
         orderDate: new Date().toISOString()
       } : undefined
     });
 
+    // Reset
     setFormData({ 
-      name: '', 
-      age: '', 
-      phone: '', 
-      address: '',
-      condition: '', 
-      startDate: new Date().toISOString().split('T')[0], 
-      durationDays: '10',
-      serviceType: 'physiotherapy'
+      name: '', age: '', phone: '', address: '', condition: '', 
+      startDate: new Date().toISOString().split('T')[0], durationDays: '10', serviceType: 'physiotherapy'
     });
+    setSelectedProjections([]);
   };
 
   const inputClasses = "w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl text-slate-900 text-sm font-medium placeholder:text-slate-400 focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all shadow-sm";
@@ -63,18 +92,18 @@ const AddPatientModal: React.FC<AddPatientModalProps> = ({ isOpen, onClose, onAd
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4 animate-in fade-in duration-300">
-      <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-xl overflow-hidden animate-in zoom-in-95 duration-200 border border-white/20">
+      <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-200 border border-white/20">
         <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
           <div>
             <h2 className="text-2xl font-black text-slate-900 tracking-tight">Patient Admission</h2>
-            <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-[0.2em] mt-0.5">Electronic Health Record v1.0</p>
+            <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-[0.2em] mt-0.5">Electronic Health Record v1.2</p>
           </div>
           <button onClick={onClose} className="p-2 rounded-full hover:bg-white hover:shadow-md text-slate-400 hover:text-slate-600 transition-all">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
         
-        <form onSubmit={handleSubmit} className="p-8 space-y-6 max-h-[75vh] overflow-y-auto custom-scrollbar">
+        <form onSubmit={handleSubmit} className="p-8 space-y-6 max-h-[80vh] overflow-y-auto custom-scrollbar">
           <div className="grid grid-cols-2 gap-4">
             <button
               type="button"
@@ -89,7 +118,7 @@ const AddPatientModal: React.FC<AddPatientModalProps> = ({ isOpen, onClose, onAd
               onClick={() => setFormData({ ...formData, serviceType: 'x-ray' })}
               className={`flex flex-col items-center gap-2 p-5 rounded-3xl border-2 transition-all ${formData.serviceType === 'x-ray' ? 'border-indigo-600 bg-indigo-50 text-indigo-700 shadow-xl shadow-indigo-100' : 'border-slate-50 bg-slate-50 text-slate-400 hover:border-slate-200'}`}
             >
-              <BoneIcon />
+              <XrayIcon />
               <span className="text-xs font-black uppercase tracking-widest">Radiology Dept</span>
             </button>
           </div>
@@ -111,18 +140,61 @@ const AddPatientModal: React.FC<AddPatientModalProps> = ({ isOpen, onClose, onAd
               <input required type="number" className={inputClasses} value={formData.age} onChange={(e) => setFormData({ ...formData, age: e.target.value })} placeholder="Years" />
             </div>
              <div>
-              <label className={labelClasses}>Clinical Condition</label>
-              <input required className={inputClasses} value={formData.condition} onChange={(e) => setFormData({ ...formData, condition: e.target.value })} placeholder="e.g. Cervical Spondylosis" />
+              <label className={labelClasses}>Clinical Indication</label>
+              <input required className={inputClasses} value={formData.condition} onChange={(e) => setFormData({ ...formData, condition: e.target.value })} placeholder="Reason for investigation..." />
             </div>
           </div>
 
-          <div>
-            <label className={labelClasses}>Residential Address</label>
-            <textarea required className={inputClasses} value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} placeholder="Complete address for records..." rows={2} />
-          </div>
+          {formData.serviceType === 'x-ray' && (
+            <div className="space-y-4 animate-in slide-in-from-top-4">
+              <label className={labelClasses}>X-Ray Projections (Multiple Selection)</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {RADIOLOGY_REGIONS.map(region => (
+                  <div key={region.name} className="bg-slate-50/50 p-4 rounded-3xl border border-slate-100">
+                    <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-3 px-1">{region.name}</h4>
+                    <div className="space-y-2">
+                      {region.parts.map(part => (
+                        <div key={part} className="flex items-center justify-between gap-2 p-1 bg-white rounded-xl border border-slate-100 shadow-sm">
+                          <span className="text-[11px] font-bold text-slate-600 ml-2">{part}</span>
+                          <div className="flex gap-1">
+                            {region.bilateral ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => toggleProjection(part, 'L')}
+                                  className={`w-7 h-7 rounded-lg text-[10px] font-black transition-all ${selectedProjections.includes(`${part} (L)`) ? 'bg-indigo-600 text-white' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}
+                                >
+                                  L
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => toggleProjection(part, 'R')}
+                                  className={`w-7 h-7 rounded-lg text-[10px] font-black transition-all ${selectedProjections.includes(`${part} (R)`) ? 'bg-indigo-600 text-white' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}
+                                >
+                                  R
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => toggleProjection(part)}
+                                className={`px-3 h-7 rounded-lg text-[10px] font-black transition-all ${selectedProjections.includes(part) ? 'bg-indigo-600 text-white' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}
+                              >
+                                Select
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {formData.serviceType === 'physiotherapy' && (
-            <div className="animate-in slide-in-from-top-4 duration-500">
+            <div className="animate-in slide-in-from-top-4">
               <div className="grid grid-cols-2 gap-6">
                 <div>
                   <label className={labelClasses}>Plan Start Date</label>

@@ -3,19 +3,15 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Patient, CLINIC_CONFIG } from '../types';
 import { 
   UserPlusIcon, 
-  UsersIcon,
   ActivityIcon, 
   CheckCircleIcon, 
-  CalendarIcon, 
   ChevronRightIcon, 
   PhoneIcon, 
   HistoryIcon, 
   SearchIcon, 
   DownloadIcon,
-  BoneIcon,
+  XrayIcon,
   ClockIcon,
-  ScansIcon,
-  XCircleIcon,
   TrashIcon
 } from './Icons';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, Tooltip, ResponsiveContainer, Radar as RadarComponent } from 'recharts';
@@ -194,7 +190,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         </div>
         <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4 group hover:border-blue-200 transition-all">
           <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600">
-            <BoneIcon />
+            <XrayIcon />
           </div>
           <div>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">X-Ray Radiology</p>
@@ -272,7 +268,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                           <div className="flex items-center justify-between mb-6">
                              <div className="flex items-center gap-4">
                                 <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-sm ${patient.serviceType === 'x-ray' ? 'bg-blue-600 text-white' : 'bg-emerald-600 text-white'}`}>
-                                  {patient.serviceType === 'x-ray' ? <BoneIcon /> : <ActivityIcon />}
+                                  {patient.serviceType === 'x-ray' ? <XrayIcon /> : <ActivityIcon />}
                                 </div>
                                 <div>
                                   <h3 className="text-2xl font-black text-slate-900 group-hover:text-indigo-600 transition-colors">
@@ -329,7 +325,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                   <div key={patient.id} className="group bg-white rounded-3xl p-6 border border-slate-100 shadow-sm hover:shadow-lg transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-6 relative">
                     <div onClick={() => onSelectPatient(patient)} className="flex items-center gap-5 cursor-pointer flex-1">
                       <div className={`w-14 h-14 rounded-2xl overflow-hidden shrink-0 flex items-center justify-center transition-all ${patient.serviceType === 'x-ray' ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600'} group-hover:scale-110`}>
-                         {patient.serviceType === 'x-ray' ? <BoneIcon /> : <ActivityIcon />}
+                         {patient.serviceType === 'x-ray' ? <XrayIcon /> : <ActivityIcon />}
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center gap-3">
@@ -337,11 +333,27 @@ const Dashboard: React.FC<DashboardProps> = ({
                             {patient.name}
                           </h3>
                         </div>
-                        <div className="flex items-center gap-2 text-sm text-slate-500 mt-1">
+                        <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500 mt-1">
                           <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-lg text-[10px] font-black uppercase">{patient.condition}</span>
                           <span className="text-[10px] text-slate-300">•</span>
                           <span className="text-[10px] text-slate-400 font-bold">{patient.age} Yrs</span>
                         </div>
+                        
+                        {/* Projection Badges for X-Ray Patients */}
+                        {patient.serviceType === 'x-ray' && patient.xrayData && (
+                          <div className="mt-3 flex flex-wrap gap-1.5">
+                            {(patient.xrayData.bodyParts || []).length > 0 ? (
+                              patient.xrayData.bodyParts.map(part => (
+                                <span key={part} className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded-md text-[9px] font-black uppercase tracking-tight border border-blue-100">
+                                  {part}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="px-2 py-0.5 bg-slate-50 text-slate-400 rounded-md text-[9px] font-black uppercase tracking-tight italic">Standard Series</span>
+                            )}
+                          </div>
+                        )}
+
                         <div className="mt-4">
                           <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
                             <div 

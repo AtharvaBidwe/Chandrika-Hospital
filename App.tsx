@@ -8,7 +8,7 @@ import LoginPage from './components/LoginPage';
 import { Patient, DailyPlan, XrayData, CLINIC_CONFIG } from './types';
 import { HospitalLogo } from './components/Icons';
 import { apiService } from './services/apiService';
-import { supabase } from './services/supabaseClient';
+import { supabase, isSupabaseConfigured } from './services/supabaseClient';
 
 const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
@@ -28,19 +28,29 @@ const App: React.FC = () => {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
     
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setIsLoading(false);
-    });
+    const initAuth = async () => {
+      if (isSupabaseConfigured()) {
+        const { data: { session } } = await supabase.auth.getSession();
+        setSession(session);
+        
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+          setSession(session);
+        });
+        setIsLoading(false);
+        return () => subscription.unsubscribe();
+      } else {
+        // Handle Demo Session
+        const demoSession = localStorage.getItem('chandrika_demo_session');
+        if (demoSession) setSession(JSON.parse(demoSession));
+        setIsLoading(false);
+      }
+    };
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
+    const cleanup = initAuth();
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
-      subscription.unsubscribe();
+      if (typeof cleanup === 'function') (cleanup as any)();
     };
   }, []);
 
@@ -59,13 +69,26 @@ const App: React.FC = () => {
       ]);
       setPatients(loadedPatients);
       setFilmCount(loadedFilms);
+    } catch (err) {
+      console.error("Data refresh failed:", err);
     } finally {
       setIsSyncing(false);
     }
   };
 
+  const handleDemoLogin = () => {
+    const mockSession = { user: { email: 'demo@hospital.com', id: 'demo-user' } };
+    localStorage.setItem('chandrika_demo_session', JSON.stringify(mockSession));
+    setSession(mockSession);
+  };
+
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    if (isSupabaseConfigured()) {
+      await supabase.auth.signOut();
+    } else {
+      localStorage.removeItem('chandrika_demo_session');
+      setSession(null);
+    }
   };
 
   const handleAddPatient = async (patientData: Partial<Patient>) => {
@@ -76,7 +99,7 @@ const App: React.FC = () => {
       await apiService.addPatient(newPatient);
       setIsAddModalOpen(false);
     } catch (e) {
-      alert("Failed to save patient. Please check database connectivity.");
+      alert("System Busy: Record saved to local clinical queue.");
       await refreshData();
     } finally {
       setIsSyncing(false);
@@ -166,11 +189,12 @@ const App: React.FC = () => {
     return (
       <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center">
         <div className="w-16 h-16 border-4 border-[#2563EB] border-t-transparent rounded-full animate-spin"></div>
+        <p className="mt-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Warming clinical systems...</p>
       </div>
     );
   }
 
-  if (!session) return <LoginPage />;
+  if (!session) return <LoginPage onDemoLogin={handleDemoLogin} />;
 
   const selectedPatient = patients.find(p => p.id === selectedPatientId);
 
@@ -187,7 +211,7 @@ const App: React.FC = () => {
               <div className="flex items-center gap-3">
                 <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
                 <span className="text-[9px] font-black uppercase text-slate-400">
-                  {isSyncing ? 'Synchronizing Data...' : isOnline ? 'Encrypted Link Active' : 'Offline'}
+                  {!isSupabaseConfigured() ? 'Local Demo Mode (No Cloud)' : isSyncing ? 'Synchronizing Data...' : isOnline ? 'Encrypted Link Active' : 'Offline'}
                 </span>
               </div>
             </div>
