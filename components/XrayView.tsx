@@ -63,9 +63,9 @@ const XrayView: React.FC<XrayViewProps> = ({ patient, onUpdateXray, onBack }) =>
         aiReport: report,
         status: 'reported'
       });
-    } catch (err) {
-      console.error("AI Analysis failed", err);
-      alert("AI Analysis failed. Please check your internet connection and try again.");
+    } catch (err: any) {
+      console.error("X-Ray Analysis failed:", err);
+      alert(`AI Analysis failed: ${err.message || 'Check your internet connection or API key configuration.'}`);
     } finally {
       setIsAnalyzing(false);
     }
