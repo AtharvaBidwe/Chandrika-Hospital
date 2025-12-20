@@ -1,11 +1,11 @@
-
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || '';
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn("Supabase configuration missing! Check Netlify Environment Variables.");
-}
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// If configuration is missing, we use placeholder strings to prevent the app from crashing on load.
+// The App.tsx configuration guard will then display a helpful error message to the user.
+export const supabase = createClient(
+  supabaseUrl || 'https://placeholder.supabase.co', 
+  supabaseAnonKey || 'placeholder'
+);

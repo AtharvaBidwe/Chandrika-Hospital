@@ -1,8 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// Fix: Removed 'server.historyApiFallback' as it is not a valid Vite configuration option.
-// Vite provides SPA history support by default during development.
 export default defineConfig({
   plugins: [react()],
   define: {

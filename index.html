@@ -1,10 +1,9 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Chandrika Hospital</title>
+  <title>Chandrika Hospital | Clinical Portal</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
@@ -14,10 +13,7 @@
     .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
 
     @media print {
-      @page {
-        margin: 0;
-        size: auto;
-      }
+      @page { margin: 0; size: auto; }
       body { 
         background-color: white !important; 
         padding: 0 !important; 
@@ -26,12 +22,8 @@
       }
       nav, footer, .print\:hidden { display: none !important; }
       .print\:block { display: block !important; }
-      
       #root { margin: 0 !important; padding: 0 !important; width: 100% !important; }
-      .max-w-6xl { max-width: 100% !important; margin: 0 !important; padding: 0 !important; }
-      
       * { background-color: transparent !important; color: black !important; }
-      .bg-white, [class*="bg-white"] { background-color: white !important; }
     }
   </style>
 <script type="importmap">
