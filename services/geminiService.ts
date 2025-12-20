@@ -45,7 +45,6 @@ export const suggestPhysioPlan = async (condition: string, durationWeeks: number
   });
 
   try {
-    // Fixed: Added fallback for response.text to prevent errors during JSON parsing
     return JSON.parse(response.text || '[]');
   } catch (e) {
     console.error("Failed to parse AI response", e);
@@ -79,7 +78,6 @@ export const analyzePainPatterns = async (conditions: string[]) => {
   });
 
   try {
-    // Fixed: Added fallback for response.text to prevent errors during JSON parsing
     return JSON.parse(response.text || '[]');
   } catch (e) {
     console.error("Failed to parse AI pain analysis", e);
@@ -109,7 +107,13 @@ export const analyzeXrayImage = async (base64Image: string, mimeType: string, cl
           Analyze this medical X-ray imaging for clinical indication: "${clinicalIssue}".
           ${langPrompt}
           
-          Provide a formal, final, print-ready Clinical Radiology Report using this structure:
+          STRICT FORMATTING RULES:
+          1. DO NOT repeat patient metadata (Name, Age, Sex, Phone, Date, or Clinical Indication) at the top of the report. This information is already printed in the header.
+          2. DO NOT use Markdown formatting (like **bold** or *italics*).
+          3. Use plain capitalized headers for sections.
+          4. Start directly with the RADIOLOGICAL FINDINGS.
+          
+          Report Structure:
           
           RADIOLOGICAL FINDINGS:
           - Detail all visible skeletal or soft tissue structures.
@@ -121,13 +125,11 @@ export const analyzeXrayImage = async (base64Image: string, mimeType: string, cl
           RECOMMENDATIONS:
           - State any suggested clinical follow-up.
           
-          DO NOT include any medical disclaimers, AI warnings, or labels like 'AI analysis'. 
           Write it as an authoritative medical document for the primary physician, ${CLINIC_CONFIG.clinicianName}.`
         }
       ]
     },
   });
 
-  // Fixed: Added fallback for response.text to handle potential undefined values gracefully
   return response.text || "Report generation unavailable. Please try again.";
 };

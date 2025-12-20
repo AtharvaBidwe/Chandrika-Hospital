@@ -97,48 +97,48 @@ const XrayView: React.FC<XrayViewProps> = ({ patient, onUpdateXray, onBack }) =>
       {/* Printable Area - Designed for Pre-Printed Letterheads */}
       <div className="hidden print:block print:absolute print:inset-0 bg-white p-12 font-serif text-black min-h-screen w-full z-50">
         {/* Empty space for pre-printed letterhead (approx 2.2 inches) */}
-        <div className="h-[2.2in]"></div>
+        <div className="h-[2in]"></div>
 
         {/* Patient Demographic Bar */}
-        <div className="grid grid-cols-3 gap-6 mb-8 pb-6 border-b-2 border-slate-300">
+        <div className="grid grid-cols-3 gap-6 mb-4 pb-4 border-b border-slate-400">
           <div>
-            <p className="text-[10px] text-slate-500 uppercase font-bold mb-1">Patient Name</p>
-            <p className="text-base font-bold uppercase tracking-tight">{patient.name}</p>
+            <p className="text-[10px] text-slate-500 uppercase font-black mb-0.5">Patient Name</p>
+            <p className="text-base font-black uppercase tracking-tight">{patient.name}</p>
           </div>
           <div>
-            <p className="text-[10px] text-slate-500 uppercase font-bold mb-1">Age / Phone</p>
+            <p className="text-[10px] text-slate-500 uppercase font-black mb-0.5">Age / Phone</p>
             <p className="text-base font-bold">{patient.age} Yrs / {patient.phone}</p>
           </div>
           <div className="text-right">
-            <p className="text-[10px] text-slate-500 uppercase font-bold mb-1">Examination Date</p>
+            <p className="text-[10px] text-slate-500 uppercase font-black mb-0.5">Examination Date</p>
             <p className="text-base font-bold">{new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
           </div>
-          <div className="col-span-2 mt-2">
-            <p className="text-[10px] text-slate-500 uppercase font-bold mb-1">Clinical Indication</p>
-            <p className="text-sm italic">{issue || patient.condition}</p>
+          <div className="col-span-2 mt-1">
+            <p className="text-[10px] text-slate-500 uppercase font-black mb-0.5">Clinical Indication</p>
+            <p className="text-sm italic font-medium">{issue || patient.condition}</p>
           </div>
-          <div className="text-right mt-2">
-            <p className="text-[10px] text-slate-500 uppercase font-bold mb-1">Radiological Series</p>
+          <div className="text-right mt-1">
+            <p className="text-[10px] text-slate-500 uppercase font-black mb-0.5">Radiological Series</p>
             <p className="text-sm font-bold">{selectedParts.join(', ') || 'Standard Series'}</p>
           </div>
         </div>
 
         {/* The Actual Report Body */}
-        <div className="mt-8">
-          <div className="text-[15px] leading-[1.6] whitespace-pre-wrap text-justify font-serif tracking-tight">
+        <div className="mt-6">
+          <div className="text-[14px] leading-[1.6] whitespace-pre-wrap text-justify font-serif tracking-normal">
             {xray.aiReport || "Report data pending AI analysis..."}
           </div>
         </div>
 
         {/* Footer Signature Area */}
-        <div className="mt-24 flex justify-end">
+        <div className="mt-20 flex justify-end">
           <div className="text-center w-72 pt-4">
-             <div className="h-16 flex items-end justify-center mb-1">
+             <div className="h-12 flex items-end justify-center mb-1">
                 {/* Space for manual signature */}
                 <div className="w-40 border-b border-slate-200"></div>
              </div>
-            <p className="text-sm font-bold">{CLINIC_CONFIG.clinicianName}</p>
-            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Consultant Radiologist</p>
+            <p className="text-sm font-black">{CLINIC_CONFIG.clinicianName}</p>
+            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-black">Consultant Radiologist</p>
             <p className="text-[9px] text-slate-400 mt-0.5">{CLINIC_CONFIG.credentials}</p>
           </div>
         </div>

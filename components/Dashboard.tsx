@@ -384,9 +384,9 @@ const Dashboard: React.FC<DashboardProps> = ({
         </div>
 
         <div className="lg:col-span-1 space-y-6">
-          <div className="bg-white rounded-[2rem] p-8 border border-slate-100 shadow-sm">
+          <div className="bg-white rounded-[2rem] p-6 sm:p-8 border border-slate-100 shadow-sm">
             <h3 className="text-xl font-black text-slate-800 tracking-tight mb-8">X-Ray Storage</h3>
-            <div className="flex items-center justify-between bg-slate-900 p-8 rounded-[1.5rem] mb-8 shadow-2xl">
+            <div className="flex items-center justify-between bg-slate-900 p-6 sm:p-8 rounded-[1.5rem] mb-8 shadow-2xl">
               <div>
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Films Available</p>
                 <p className={`text-5xl font-black ${isLowStock ? 'text-red-400' : 'text-white'}`}>{filmCount}</p>
@@ -394,12 +394,12 @@ const Dashboard: React.FC<DashboardProps> = ({
             </div>
             <div className="space-y-4">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Restock</label>
-              <div className="flex gap-3">
+              <div className="flex flex-col xl:flex-row gap-3">
                 <input 
                   id="film-input"
                   type="number"
                   placeholder="Count..."
-                  className="flex-1 px-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                  className="flex-1 min-w-0 px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                   value={addFilmValue}
                   onChange={(e) => setAddFilmValue(e.target.value)}
                 />
@@ -408,7 +408,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                     const count = parseInt(addFilmValue);
                     if (count > 0) { onAddFilms(count); setAddFilmValue(''); }
                   }}
-                  className="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-700 transition-all"
+                  className="whitespace-nowrap bg-indigo-600 text-white px-5 py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-sm"
                 >
                   Add
                 </button>
