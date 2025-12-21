@@ -38,12 +38,11 @@ const App: React.FC = () => {
           setSession(newSession);
         });
         authSubscriptionRef.current = subscription;
-        setIsLoading(false);
       } else {
         const demoSession = localStorage.getItem('chandrika_demo_session');
         if (demoSession) setSession(JSON.parse(demoSession));
-        setIsLoading(false);
       }
+      setIsLoading(false);
     };
 
     initAuth();
@@ -95,22 +94,15 @@ const App: React.FC = () => {
   };
 
   const handleAddPatient = async (patientData: Partial<Patient>) => {
-    // 1. Prepare data
     const newPatient = patientData as Patient;
-    
-    // 2. Optimistic Update: Update UI and close modal immediately
     setPatients(prev => [newPatient, ...prev]);
     setIsAddModalOpen(false);
     setIsSyncing(true);
 
-    // 3. Background Sync
     try {
       await apiService.addPatient(newPatient);
     } catch (e) {
-      // In case of a hard failure, we log it but keep the optimistic data
-      // A more complex app might roll back, but for clinical records we prefer 
-      // keeping the local state and retrying sync later.
-      console.warn("Background sync failed. Record is in local cache.", e);
+      console.warn("Sync failed. Stored locally.", e);
     } finally {
       setIsSyncing(false);
     }
@@ -120,7 +112,7 @@ const App: React.FC = () => {
     const patientToDelete = patients.find(p => p.id === patientId);
     if (!patientToDelete) return;
 
-    if (window.confirm(`Are you sure you want to completely delete the record for "${patientToDelete.name}"? This action cannot be undone.`)) {
+    if (window.confirm(`Delete record for "${patientToDelete.name}"?`)) {
       setIsSyncing(true);
       try {
         setPatients(prev => prev.filter(p => p.id !== patientId));
@@ -129,8 +121,6 @@ const App: React.FC = () => {
           setView('dashboard');
           setSelectedPatientId(null);
         }
-      } catch (e) {
-        console.error("Failed to delete patient from database:", e);
       } finally {
         setIsSyncing(false);
       }
@@ -160,7 +150,6 @@ const App: React.FC = () => {
           const deduction = updatedXray.filmsUsedCount;
           currentFilms = Math.max(0, filmCount - deduction);
           setFilmCount(currentFilms);
-          
           updatedXray.filmConsumed = true; 
           await apiService.updateFilmCount(currentFilms);
       }
@@ -200,7 +189,7 @@ const App: React.FC = () => {
     return (
       <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center">
         <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-        <p className="mt-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Warming clinical systems...</p>
+        <p className="mt-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Initializing Clinical Portal...</p>
       </div>
     );
   }
@@ -277,10 +266,12 @@ const App: React.FC = () => {
         <div className="bg-slate-900/95 backdrop-blur-2xl px-8 py-3 rounded-full border border-white/10 shadow-[0_15px_40px_rgba(0,0,0,0.5)] flex items-center gap-6 pointer-events-auto transition-all duration-300 hover:scale-105">
           <div className="flex items-center gap-2.5">
             <div className="relative flex items-center justify-center">
-               <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping absolute opacity-75"></div>
-               <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 relative shadow-[0_0_10px_rgba(16,185,129,0.8)]"></div>
+               <div className={`w-1.5 h-1.5 rounded-full ${isSyncing ? 'bg-indigo-400 animate-spin' : 'bg-emerald-500 animate-ping'} absolute opacity-75`}></div>
+               <div className={`w-1.5 h-1.5 rounded-full ${isSyncing ? 'bg-indigo-400' : 'bg-emerald-500'} relative shadow-[0_0_10px_rgba(16,185,129,0.8)]`}></div>
             </div>
-            <span className="text-[9px] font-black text-emerald-400 uppercase tracking-[0.2em] whitespace-nowrap">CHANDRIKA HOSPITAL</span>
+            <span className={`text-[9px] font-black uppercase tracking-[0.2em] whitespace-nowrap ${isSyncing ? 'text-indigo-400' : 'text-emerald-400'}`}>
+              {isSyncing ? 'SYNCHRONIZING' : 'CHANDRIKA HOSPITAL'}
+            </span>
           </div>
           
           <div className="w-[1px] h-3 bg-white/10"></div>
