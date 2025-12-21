@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Patient, ServiceType, DayOfWeek } from '../types';
+import { Patient, ServiceType } from '../types';
 import { ActivityIcon, XrayIcon } from './Icons';
 
 interface AddPatientModalProps {
@@ -56,8 +56,7 @@ const AddPatientModal: React.FC<AddPatientModalProps> = ({ isOpen, onClose, onAd
       registrationDate: systemDate,
       endDate: end.toISOString().split('T')[0],
       dailyPlans: [],
-      // Defaulting to Mon-Sat as standard clinical days since the selector was removed
-      selectedDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'], 
+      selectedDays: [], // Simplified: no longer picking specific days
       xrayData: formData.serviceType === 'x-ray' ? {
         issue: formData.condition,
         bodyParts: selectedProjections,
@@ -83,7 +82,7 @@ const AddPatientModal: React.FC<AddPatientModalProps> = ({ isOpen, onClose, onAd
         <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
           <div>
             <h2 className="text-2xl font-black text-slate-900 tracking-tight">Patient Admission</h2>
-            <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-[0.2em] mt-0.5">Electronic Health Record v1.0</p>
+            <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-[0.2em] mt-0.5">Electronic Health Record v1.2</p>
           </div>
           <button onClick={onClose} className="p-2 rounded-full hover:bg-white hover:shadow-md text-slate-400 hover:text-slate-600 transition-all">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>

@@ -93,16 +93,12 @@ const XrayView: React.FC<XrayViewProps> = ({ patient, onUpdateXray, onBack, avai
 
   return (
     <div className="max-w-6xl mx-auto p-4 sm:p-6 animate-in fade-in duration-500 relative pb-24">
-      {/* Custom Styles for Scanning Animation */}
+      {/* Custom Styles for Scanning Animation and Printing */}
       <style>{`
         @keyframes scanline {
           0% { top: 0%; opacity: 0.1; }
           50% { opacity: 0.8; }
           100% { top: 100%; opacity: 0.1; }
-        }
-        @keyframes flicker {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.3; }
         }
         .scan-line {
           height: 3px;
@@ -118,10 +114,37 @@ const XrayView: React.FC<XrayViewProps> = ({ patient, onUpdateXray, onBack, avai
             linear-gradient(90deg, rgba(99, 102, 241, 0.05) 1px, transparent 1px);
           background-size: 30px 30px;
         }
+        @media print {
+          .print-header { display: block !important; margin-bottom: 2rem; border-bottom: 2px solid #eee; padding-bottom: 1rem; }
+          .no-print { display: none !important; }
+          .report-container { border: none !important; box-shadow: none !important; padding: 0 !important; }
+          .report-text { background: transparent !important; color: black !important; font-size: 12pt !important; line-height: 1.6 !important; }
+          body { background: white !important; }
+        }
       `}</style>
 
-      <div className="print:hidden">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+      {/* Print Only Header */}
+      <div className="hidden print-header">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-black uppercase">{CLINIC_CONFIG.name}</h1>
+            <p className="text-sm font-bold text-slate-500">RADIOLOGY & CLINICAL IMAGING DEPARTMENT</p>
+          </div>
+          <div className="text-right text-xs">
+            <p className="font-bold">{CLINIC_CONFIG.clinicianName}</p>
+            <p>{CLINIC_CONFIG.credentials}</p>
+          </div>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-4 text-xs bg-slate-50 p-3 rounded">
+          <p><strong>Patient:</strong> {patient.name} ({patient.age}Y)</p>
+          <p><strong>ID:</strong> {patient.id.toUpperCase()}</p>
+          <p><strong>Indication:</strong> {xray.issue || patient.condition}</p>
+          <p><strong>Date:</strong> {new Date().toLocaleDateString()}</p>
+        </div>
+      </div>
+
+      <div>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 no-print">
           <div>
             <button onClick={onBack} className="text-[10px] font-black uppercase tracking-widest text-indigo-600 hover:text-indigo-800 flex items-center gap-2 mb-3">
               <span className="text-sm">←</span> Return to Dashboard
@@ -145,7 +168,7 @@ const XrayView: React.FC<XrayViewProps> = ({ patient, onUpdateXray, onBack, avai
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-1 space-y-6">
+          <div className="lg:col-span-1 space-y-6 no-print">
             <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm">
               <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6 px-1">Order Pipeline</h3>
               <div className="space-y-3">
@@ -240,31 +263,16 @@ const XrayView: React.FC<XrayViewProps> = ({ patient, onUpdateXray, onBack, avai
           </div>
 
           <div className="lg:col-span-2 space-y-6">
-            <div className="bg-slate-950 rounded-[2.5rem] overflow-hidden shadow-2xl relative min-h-[400px] flex items-center justify-center border border-white/5">
+            <div className="bg-slate-950 rounded-[2.5rem] overflow-hidden shadow-2xl relative min-h-[400px] flex items-center justify-center border border-white/5 no-print">
               {xray.imageUrl ? (
                 <div className="relative group w-full h-full flex items-center justify-center bg-black">
                   <img src={xray.imageUrl} alt="X-ray view" className="max-w-full max-h-[600px] p-4 object-contain" />
                   
-                  {/* Grid Overlay Always present on captured image */}
                   <div className="absolute inset-0 grid-overlay pointer-events-none opacity-40"></div>
                   
                   {isAnalyzing && (
                     <div className="absolute inset-0 bg-indigo-950/40 backdrop-blur-[2px] flex flex-col items-center justify-center text-white p-6 text-center z-10 overflow-hidden">
                       <div className="scan-line"></div>
-                      
-                      <div className="absolute top-10 left-10 text-left space-y-2 pointer-events-none">
-                        <p className="text-[10px] font-black text-indigo-400 tracking-[0.3em] uppercase animate-pulse">Neural Path Analysis</p>
-                        <p className="text-[9px] font-mono text-white/40">LATENCY: 12ms</p>
-                        <p className="text-[9px] font-mono text-white/40">SYST: {CLINIC_CONFIG.shortName.toUpperCase()}-AI-V3</p>
-                      </div>
-
-                      <div className="absolute bottom-10 right-10 text-right space-y-1 pointer-events-none">
-                        <p className="text-[10px] font-black text-white/60">SCANNING {selectedParts[0] || 'REGION'}...</p>
-                        <div className="w-32 h-1 bg-white/10 rounded-full overflow-hidden">
-                           <div className="h-full bg-indigo-500 animate-[pulse_1.5s_infinite]"></div>
-                        </div>
-                      </div>
-
                       <div className="relative z-20">
                         <div className="w-16 h-16 border-4 border-indigo-500/20 border-t-indigo-400 rounded-full animate-spin mb-6 mx-auto"></div>
                         <h3 className="text-xl font-black uppercase tracking-widest italic drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]">Synthesizing Report</h3>
@@ -272,7 +280,7 @@ const XrayView: React.FC<XrayViewProps> = ({ patient, onUpdateXray, onBack, avai
                     </div>
                   )}
 
-                  <div className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-4 backdrop-blur-[4px]">
+                  <div className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-4 backdrop-blur-[4px] no-print">
                     <p className="text-white text-[10px] font-black uppercase tracking-[0.3em] mb-2">Radiology Hub</p>
                     <div className="flex gap-4">
                       <button onClick={() => cameraInputRef.current?.click()} className="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-[10px] border border-white/20 hover:bg-indigo-700 transition-all">
@@ -294,13 +302,12 @@ const XrayView: React.FC<XrayViewProps> = ({ patient, onUpdateXray, onBack, avai
                     System ready. Choose input source:
                   </p>
                   
-                  <div className="flex flex-col sm:flex-row items-center justify-center gap-4 max-w-sm mx-auto">
+                  <div className="flex flex-col sm:flex-row items-center justify-center gap-4 max-w-sm mx-auto no-print">
                     <button 
                       disabled={filmsToUse > availableFilms}
                       onClick={() => cameraInputRef.current?.click()} 
                       className={`w-full px-8 py-5 rounded-3xl font-black uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-3 ${filmsToUse > availableFilms ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-2xl shadow-indigo-900'}`}
                     >
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
                       Open Camera
                     </button>
                     <button 
@@ -308,24 +315,18 @@ const XrayView: React.FC<XrayViewProps> = ({ patient, onUpdateXray, onBack, avai
                       onClick={() => fileInputRef.current?.click()} 
                       className={`w-full px-8 py-5 rounded-3xl font-black uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-3 ${filmsToUse > availableFilms ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-slate-800 text-white border border-white/10 hover:bg-slate-700'}`}
                     >
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                       From Gallery
                     </button>
                   </div>
-
-                  {filmsToUse > availableFilms && (
-                    <p className="mt-6 text-[10px] font-black text-red-400 uppercase tracking-widest animate-pulse">Insufficient Film Inventory</p>
-                  )}
                 </div>
               )}
               
-              {/* Separate inputs for camera (with capture) and files (standard) */}
               <input type="file" ref={cameraInputRef} className="hidden" accept="image/*" capture="environment" onChange={handleFileUpload} />
               <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
             </div>
 
-            <div className="bg-white rounded-[2.5rem] p-10 border border-slate-100 shadow-sm">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-8">
+            <div className="bg-white rounded-[2.5rem] p-10 border border-slate-100 shadow-sm report-container">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-8 no-print">
                 <div className="flex-1">
                   <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter italic">Clinical Synthesis</h3>
                   <div className="mt-4 flex bg-slate-100 p-1 rounded-2xl w-fit border border-slate-200 shadow-inner">
@@ -342,17 +343,17 @@ const XrayView: React.FC<XrayViewProps> = ({ patient, onUpdateXray, onBack, avai
 
               {xray.aiReport ? (
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                  <div className="bg-slate-900 text-slate-300 p-10 rounded-[2rem] font-mono text-sm whitespace-pre-wrap leading-loose shadow-2xl border border-white/5">
+                  <div className="bg-slate-900 text-slate-300 p-10 rounded-[2rem] font-mono text-sm whitespace-pre-wrap leading-loose shadow-2xl border border-white/5 report-text">
                     {xray.aiReport}
                   </div>
-                  <div className="mt-10 flex justify-end">
+                  <div className="mt-10 flex justify-end no-print">
                      <button onClick={() => window.print()} className="flex items-center gap-3 bg-indigo-600 text-white px-10 py-4 rounded-2xl font-black uppercase tracking-widest text-[11px] hover:bg-indigo-700 transition-all shadow-2xl shadow-indigo-100">
                        <DownloadIcon /> Print Report
                      </button>
                   </div>
                 </div>
               ) : (
-                <div className="py-24 text-center bg-slate-50/50 rounded-[2.5rem] border-2 border-dashed border-slate-200">
+                <div className="py-24 text-center bg-slate-50/50 rounded-[2.5rem] border-2 border-dashed border-slate-200 no-print">
                   <p className="text-slate-400 font-black uppercase tracking-widest text-xs italic">Awaiting radiological findings...</p>
                 </div>
               )}

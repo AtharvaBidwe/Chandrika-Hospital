@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -17,17 +18,68 @@
     .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
 
     @media print {
-      @page { margin: 0; size: auto; }
-      body { 
+      @page { margin: 1cm; size: A4; }
+      
+      /* Force display and clear overflows */
+      html, body { 
+        height: auto !important;
+        overflow: visible !important;
         background-color: white !important; 
-        padding: 0 !important; 
-        margin: 0 !important; 
-        -webkit-print-color-adjust: exact;
+        color: black !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
       }
-      nav, footer, .print\:hidden { display: none !important; }
-      .print\:block { display: block !important; }
-      #root { margin: 0 !important; padding: 0 !important; width: 100% !important; }
-      * { background-color: transparent !important; color: black !important; }
+
+      #root { 
+        display: block !important;
+        position: static !important;
+        height: auto !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: visible !important;
+      }
+
+      /* Explicitly hide non-essential elements */
+      nav, footer, .print\:hidden, .no-print, button, select, input, .shadow-2xl, .shadow-sm { 
+        display: none !important; 
+        visibility: hidden !important;
+        height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+
+      /* Force standard layouts for printed content */
+      .report-container {
+        display: block !important;
+        width: 100% !important;
+        position: static !important;
+        border: 2px solid #eee !important;
+        padding: 2rem !important;
+        margin-top: 2rem !important;
+      }
+
+      .report-text {
+        color: black !important;
+        font-family: 'Courier New', monospace !important;
+        font-size: 11pt !important;
+        line-height: 1.6 !important;
+        white-space: pre-wrap !important;
+        background: transparent !important;
+        border: none !important;
+      }
+
+      .lg\:col-span-2, .lg\:grid-cols-3 {
+        display: block !important;
+        width: 100% !important;
+      }
+
+      * { 
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        box-shadow: none !important;
+      }
     }
   </style>
 <script type="importmap">

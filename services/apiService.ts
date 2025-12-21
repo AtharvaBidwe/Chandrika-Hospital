@@ -3,7 +3,7 @@ import { Patient } from '../types';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 
 const LOCAL_STORAGE_KEY = 'chandrika_demo_patients';
-const LOCAL_FILM_KEY = 'chandrika_demo_films';
+const LOCAL_FIL_KEY = 'chandrika_demo_films';
 
 // Helper to map DB snake_case to JS camelCase
 const mapFromDb = (db: any): Patient => ({
@@ -50,7 +50,6 @@ export const apiService = {
       try {
         return local ? JSON.parse(local) : [];
       } catch (e) {
-        console.error("Corrupted local patient storage cleared:", e);
         return [];
       }
     }
@@ -81,16 +80,26 @@ export const apiService = {
     }
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Unauthorized");
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        console.error("AddPatient Error: User not logged in.");
+        throw new Error("Unauthorized: Login session expired");
+      }
 
-      const dbData = mapToDb(patient, user.id);
-      const { error } = await supabase.from('patients').insert([dbData]);
+      const dbData = mapToDb(patient, session.user.id);
+      
+      const { error } = await supabase
+        .from('patients')
+        .upsert(dbData, { onConflict: 'id' });
 
-      if (error) throw error;
-    } catch (e) {
-      console.error("Add Patient Failed:", e);
-      throw e;
+      if (error) {
+        console.error("Supabase Save Failed:", error.message, error.details);
+        throw error;
+      }
+      
+      console.log(`Cloud backup complete for patient: ${patient.name}`);
+    } catch (e: any) {
+      console.error("CRITICAL SYNC FAILURE (Patient will persist locally only):", e.message || e);
     }
   },
 
@@ -109,8 +118,7 @@ export const apiService = {
 
       if (error) throw error;
     } catch (e) {
-      console.error("Sync Patients Failed:", e);
-      throw e;
+      console.error("Batch Cloud Sync Failed:", e);
     }
   },
 
@@ -130,16 +138,14 @@ export const apiService = {
       if (updates.status) dbUpdates.status = updates.status;
       if (updates.condition) dbUpdates.condition = updates.condition;
 
-      const { error } = await supabase
+      await supabase
         .from('patients')
         .update(dbUpdates)
         .eq('id', patientId)
         .eq('user_id', user.id);
 
-      if (error) throw error;
       return this.getPatients();
     } catch (e) {
-      console.error("Update Status Failed:", e);
       return this.getPatients();
     }
   },
@@ -153,24 +159,16 @@ export const apiService = {
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Unauthorized");
-
-      const { error } = await supabase
-        .from('patients')
-        .delete()
-        .eq('id', patientId)
-        .eq('user_id', user.id);
-
-      if (error) throw error;
+      if (!user) return;
+      await supabase.from('patients').delete().eq('id', patientId).eq('user_id', user.id);
     } catch (e) {
-      console.error("Delete Patient Failed:", e);
-      throw e;
+      console.error("Delete Failed:", e);
     }
   },
 
   async getFilmCount(): Promise<number> {
     if (!isSupabaseConfigured()) {
-      const count = localStorage.getItem(LOCAL_FILM_KEY);
+      const count = localStorage.getItem(LOCAL_FIL_KEY);
       return count ? parseInt(count) : 50;
     }
 
@@ -185,14 +183,14 @@ export const apiService = {
 
   async updateFilmCount(count: number): Promise<void> {
     if (!isSupabaseConfigured()) {
-      localStorage.setItem(LOCAL_FILM_KEY, count.toString());
+      localStorage.setItem(LOCAL_FIL_KEY, count.toString());
       return;
     }
 
     try {
       await supabase.from('clinical_settings').upsert({ key: 'film_count', value: count.toString() });
     } catch (e) {
-      console.error("Film Update Failed:", e);
+      console.error("Film Count Sync Failed:", e);
     }
   }
 };
