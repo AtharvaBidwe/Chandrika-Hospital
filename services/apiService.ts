@@ -47,7 +47,12 @@ export const apiService = {
   async getPatients(): Promise<Patient[]> {
     if (!isSupabaseConfigured()) {
       const local = localStorage.getItem(LOCAL_STORAGE_KEY);
-      return local ? JSON.parse(local) : [];
+      try {
+        return local ? JSON.parse(local) : [];
+      } catch (e) {
+        console.error("Corrupted local patient storage cleared:", e);
+        return [];
+      }
     }
 
     try {

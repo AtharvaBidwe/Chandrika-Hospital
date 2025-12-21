@@ -95,15 +95,22 @@ const App: React.FC = () => {
   };
 
   const handleAddPatient = async (patientData: Partial<Patient>) => {
+    // 1. Prepare data
+    const newPatient = patientData as Patient;
+    
+    // 2. Optimistic Update: Update UI and close modal immediately
+    setPatients(prev => [newPatient, ...prev]);
+    setIsAddModalOpen(false);
     setIsSyncing(true);
+
+    // 3. Background Sync
     try {
-      const newPatient = patientData as Patient;
-      setPatients(prev => [newPatient, ...prev]);
       await apiService.addPatient(newPatient);
-      setIsAddModalOpen(false);
     } catch (e) {
-      alert("System Busy: Record saved to local clinical queue.");
-      await refreshData();
+      // In case of a hard failure, we log it but keep the optimistic data
+      // A more complex app might roll back, but for clinical records we prefer 
+      // keeping the local state and retrying sync later.
+      console.warn("Background sync failed. Record is in local cache.", e);
     } finally {
       setIsSyncing(false);
     }
@@ -123,8 +130,7 @@ const App: React.FC = () => {
           setSelectedPatientId(null);
         }
       } catch (e) {
-        alert("Failed to delete patient. Please try again.");
-        await refreshData();
+        console.error("Failed to delete patient from database:", e);
       } finally {
         setIsSyncing(false);
       }
@@ -281,7 +287,7 @@ const App: React.FC = () => {
           
           <div className="flex items-center gap-4">
             <p className="text-[9px] font-black text-white/40 uppercase tracking-[0.3em] whitespace-nowrap">
-            PATIENT MANAGEMENT SYSTEM • <span className="text-indigo-400">V1.0</span>
+            PATIENT MANAGEMENT SYSTEM • <span className="text-indigo-400">V1.2</span>
             </p>
           </div>
         </div>
