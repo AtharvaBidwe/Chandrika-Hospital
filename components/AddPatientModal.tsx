@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Patient, ServiceType } from '../types';
+import { Patient, ServiceType, DayOfWeek } from '../types';
 import { ActivityIcon, XrayIcon } from './Icons';
 
 interface AddPatientModalProps {
@@ -10,36 +10,21 @@ interface AddPatientModalProps {
 }
 
 const RADIOLOGY_REGIONS = [
-  {
-    name: "Head & Spine",
-    parts: ["Skull", "Sinuses", "Cervical Spine", "Thoracic Spine", "Lumbar Spine"],
-    bilateral: false
-  },
-  {
-    name: "Torso",
-    parts: ["Chest (PA/Lat)", "Abdomen (KUB)", "Pelvis", "Ribs"],
-    bilateral: true
-  },
-  {
-    name: "Upper Limb",
-    parts: ["Shoulder", "Humerus", "Elbow", "Forearm", "Wrist", "Hand"],
-    bilateral: true
-  },
-  {
-    name: "Lower Limb",
-    parts: ["Hip", "Femur", "Knee", "Leg", "Ankle", "Foot"],
-    bilateral: true
-  }
+  { name: "Head & Spine", parts: ["Skull", "Sinuses", "Cervical Spine", "Thoracic Spine", "Lumbar Spine"], bilateral: false },
+  { name: "Torso", parts: ["Chest (PA/Lat)", "Abdomen (KUB)", "Pelvis", "Ribs"], bilateral: true },
+  { name: "Upper Limb", parts: ["Shoulder", "Humerus", "Elbow", "Forearm", "Wrist", "Hand"], bilateral: true },
+  { name: "Lower Limb", parts: ["Hip", "Femur", "Knee", "Leg", "Ankle", "Foot"], bilateral: true }
 ];
 
 const AddPatientModal: React.FC<AddPatientModalProps> = ({ isOpen, onClose, onAdd }) => {
+  const systemDate = new Date().toISOString().split('T')[0];
   const [formData, setFormData] = useState({
     name: '',
     age: '',
     phone: '',
     address: '',
     condition: '',
-    startDate: new Date().toISOString().split('T')[0],
+    startDate: systemDate,
     durationDays: '10',
     serviceType: 'physiotherapy' as ServiceType,
   });
@@ -68,9 +53,11 @@ const AddPatientModal: React.FC<AddPatientModalProps> = ({ isOpen, onClose, onAd
       age: parseInt(formData.age),
       id: Math.random().toString(36).substr(2, 9),
       status: 'active',
+      registrationDate: systemDate,
       endDate: end.toISOString().split('T')[0],
       dailyPlans: [],
-      selectedDays: [], 
+      // Defaulting to Mon-Sat as standard clinical days since the selector was removed
+      selectedDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'], 
       xrayData: formData.serviceType === 'x-ray' ? {
         issue: formData.condition,
         bodyParts: selectedProjections,
@@ -79,10 +66,10 @@ const AddPatientModal: React.FC<AddPatientModalProps> = ({ isOpen, onClose, onAd
       } : undefined
     });
 
-    // Reset
+    onClose();
     setFormData({ 
       name: '', age: '', phone: '', address: '', condition: '', 
-      startDate: new Date().toISOString().split('T')[0], durationDays: '10', serviceType: 'physiotherapy'
+      startDate: systemDate, durationDays: '10', serviceType: 'physiotherapy'
     });
     setSelectedProjections([]);
   };
@@ -96,7 +83,7 @@ const AddPatientModal: React.FC<AddPatientModalProps> = ({ isOpen, onClose, onAd
         <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
           <div>
             <h2 className="text-2xl font-black text-slate-900 tracking-tight">Patient Admission</h2>
-            <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-[0.2em] mt-0.5">Electronic Health Record v1.2</p>
+            <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-[0.2em] mt-0.5">Electronic Health Record v1.0</p>
           </div>
           <button onClick={onClose} className="p-2 rounded-full hover:bg-white hover:shadow-md text-slate-400 hover:text-slate-600 transition-all">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -134,15 +121,26 @@ const AddPatientModal: React.FC<AddPatientModalProps> = ({ isOpen, onClose, onAd
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="md:col-span-1">
               <label className={labelClasses}>Age</label>
               <input required type="number" className={inputClasses} value={formData.age} onChange={(e) => setFormData({ ...formData, age: e.target.value })} placeholder="Years" />
             </div>
-             <div>
-              <label className={labelClasses}>Clinical Indication</label>
-              <input required className={inputClasses} value={formData.condition} onChange={(e) => setFormData({ ...formData, condition: e.target.value })} placeholder="Reason for investigation..." />
+             <div className="md:col-span-2">
+              <label className={labelClasses}>Town / City</label>
+              <input required className={inputClasses} value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} placeholder="e.g. Pune, Maharashtra" />
             </div>
+          </div>
+
+          <div>
+            <label className={labelClasses}>Clinical Indication / History</label>
+            <input 
+              required 
+              className={inputClasses} 
+              value={formData.condition} 
+              onChange={(e) => setFormData({ ...formData, condition: e.target.value })} 
+              placeholder="Brief reason for visit..." 
+            />
           </div>
 
           {formData.serviceType === 'x-ray' && (
@@ -194,7 +192,7 @@ const AddPatientModal: React.FC<AddPatientModalProps> = ({ isOpen, onClose, onAd
           )}
 
           {formData.serviceType === 'physiotherapy' && (
-            <div className="animate-in slide-in-from-top-4">
+            <div className="space-y-6 animate-in slide-in-from-top-4">
               <div className="grid grid-cols-2 gap-6">
                 <div>
                   <label className={labelClasses}>Plan Start Date</label>

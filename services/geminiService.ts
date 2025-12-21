@@ -6,7 +6,7 @@ export const suggestPhysioPlan = async (condition: string, durationWeeks: number
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const response = await ai.models.generateContent({
-    model: "gemini-2.0-flash",
+    model: "gemini-3-flash-preview",
     contents: `Generate a daily physiotherapy plan for a patient with "${condition}" for ${durationWeeks} week at ${CLINIC_CONFIG.name}. 
     
     STRICT MODALITY RULES:
@@ -45,43 +45,10 @@ export const suggestPhysioPlan = async (condition: string, durationWeeks: number
   });
 
   try {
-    return JSON.parse(response.text || '[]');
+    const text = response.text;
+    return JSON.parse(text || '[]');
   } catch (e) {
     console.error("Failed to parse AI response", e);
-    return [];
-  }
-};
-
-export const analyzePainPatterns = async (conditions: string[]) => {
-  if (conditions.length === 0) return [];
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
-  const response = await ai.models.generateContent({
-    model: "gemini-2.0-flash",
-    contents: `Analyze these patient conditions: ${conditions.join(", ")}. 
-    Categorize them into exactly these 5 pain types: 'Neuropathic', 'Mechanical', 'Inflammatory', 'Post-Surgical', 'Chronic/Central'.
-    Return the count for each category based on the input list. If a condition fits multiple, pick the most dominant physiological cause.`,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.ARRAY,
-        items: {
-          type: Type.OBJECT,
-          properties: {
-            subject: { type: Type.STRING, description: "The pain type category name" },
-            A: { type: Type.NUMBER, description: "The count of patients in this category" },
-            fullMark: { type: Type.NUMBER, description: "Total number of patients provided" }
-          },
-          required: ["subject", "A", "fullMark"]
-        }
-      }
-    }
-  });
-
-  try {
-    return JSON.parse(response.text || '[]');
-  } catch (e) {
-    console.error("Failed to parse AI pain analysis", e);
     return [];
   }
 };
@@ -89,7 +56,6 @@ export const analyzePainPatterns = async (conditions: string[]) => {
 export const analyzeXrayImage = async (base64Image: string, mimeType: string, clinicalIssue: string, language: 'en' | 'mr' = 'en') => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
-  // Clean base64 data
   const base64Data = base64Image.includes(',') 
     ? base64Image.split(',')[1].trim() 
     : base64Image.trim();
@@ -100,7 +66,7 @@ export const analyzeXrayImage = async (base64Image: string, mimeType: string, cl
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview', // Updated model as requested by user
+      model: 'gemini-3-flash-preview',
       contents: {
         parts: [
           {

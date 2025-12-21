@@ -9,7 +9,7 @@ export const CLINIC_CONFIG = {
   clinicianName: "Dr. Prafulla Bidwe",
   credentials: "MBBS • BJ MEDICAL PUNE",
   primaryColor: "indigo",
-  lowFilmThreshold: 20
+  lowFilmThreshold: 10
 };
 
 export interface TherapySession {
@@ -33,7 +33,8 @@ export interface XrayData {
   orderDate: string;
   imageUrl?: string;
   aiReport?: string;
-  filmConsumed?: boolean;
+  filmConsumed?: boolean; // Safeguard flag
+  filmsUsedCount?: number; // Precise count used for this specific record
 }
 
 export interface Patient {
@@ -43,11 +44,12 @@ export interface Patient {
   phone: string;
   address: string;
   condition: string;
+  registrationDate: string; // ISO date string (YYYY-MM-DD)
   startDate: string;
   endDate: string;
   status: 'active' | 'completed' | 'archived';
   serviceType: ServiceType;
-  selectedDays: DayOfWeek[]; // New: Filter for specific treatment days
+  selectedDays: DayOfWeek[]; 
   dailyPlans: DailyPlan[];
   xrayData?: XrayData;
 }

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Dashboard from './components/Dashboard';
 import AddPatientModal from './components/AddPatientModal';
 import PlannerView from './components/PlannerView';
@@ -21,6 +21,7 @@ const App: React.FC = () => {
   const [view, setView] = useState<'dashboard' | 'planner' | 'xray'>('dashboard');
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const authSubscriptionRef = useRef<{ unsubscribe: () => void } | null>(null);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -30,27 +31,29 @@ const App: React.FC = () => {
     
     const initAuth = async () => {
       if (isSupabaseConfigured()) {
-        const { data: { session } } = await supabase.auth.getSession();
-        setSession(session);
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        setSession(currentSession);
         
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-          setSession(session);
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
+          setSession(newSession);
         });
+        authSubscriptionRef.current = subscription;
         setIsLoading(false);
-        return () => subscription.unsubscribe();
       } else {
-        // Handle Demo Session
         const demoSession = localStorage.getItem('chandrika_demo_session');
         if (demoSession) setSession(JSON.parse(demoSession));
         setIsLoading(false);
       }
     };
 
-    const cleanup = initAuth();
+    initAuth();
+    
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
-      if (typeof cleanup === 'function') (cleanup as any)();
+      if (authSubscriptionRef.current) {
+        authSubscriptionRef.current.unsubscribe();
+      }
     };
   }, []);
 
@@ -147,10 +150,12 @@ const App: React.FC = () => {
     setIsSyncing(true);
     try {
       let currentFilms = filmCount;
-      if (updatedXray.status !== 'ordered' && !updatedXray.filmConsumed) {
-          currentFilms = Math.max(0, filmCount - 1);
+      if (updatedXray.status !== 'ordered' && updatedXray.filmsUsedCount && !updatedXray.filmConsumed) {
+          const deduction = updatedXray.filmsUsedCount;
+          currentFilms = Math.max(0, filmCount - deduction);
           setFilmCount(currentFilms);
-          updatedXray.filmConsumed = true;
+          
+          updatedXray.filmConsumed = true; 
           await apiService.updateFilmCount(currentFilms);
       }
 
@@ -188,7 +193,7 @@ const App: React.FC = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center">
-        <div className="w-16 h-16 border-4 border-[#2563EB] border-t-transparent rounded-full animate-spin"></div>
+        <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
         <p className="mt-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Warming clinical systems...</p>
       </div>
     );
@@ -211,7 +216,7 @@ const App: React.FC = () => {
               <div className="flex items-center gap-3">
                 <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
                 <span className="text-[9px] font-black uppercase text-slate-400">
-                  {!isSupabaseConfigured() ? 'Local Demo Mode (No Cloud)' : isSyncing ? 'Synchronizing Data...' : isOnline ? 'Encrypted Link Active' : 'Offline'}
+                  {isSyncing ? 'Syncing...' : isOnline ? 'Encrypted Link' : 'Offline'}
                 </span>
               </div>
             </div>
@@ -219,7 +224,7 @@ const App: React.FC = () => {
           <div className="flex items-center gap-4">
             <div className="text-right hidden sm:block">
               <p className="text-xs font-black text-[#0F172A] uppercase">{CLINIC_CONFIG.clinicianName}</p>
-              <button onClick={handleLogout} className="text-[9px] font-bold text-red-500 uppercase tracking-widest">Sign Out</button>
+              <button onClick={handleLogout} className="text-[9px] font-bold text-red-500 uppercase tracking-widest">End Session</button>
             </div>
             <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center font-bold text-slate-400">
               {CLINIC_CONFIG.clinicianName[0]}
@@ -255,11 +260,32 @@ const App: React.FC = () => {
                 patient={selectedPatient}
                 onUpdateXray={handleUpdateXray}
                 onBack={() => setView('dashboard')}
+                availableFilms={filmCount}
               />
             )
           )
         )}
       </main>
+
+      <footer className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 print:hidden pointer-events-none group">
+        <div className="bg-slate-900/95 backdrop-blur-2xl px-8 py-3 rounded-full border border-white/10 shadow-[0_15px_40px_rgba(0,0,0,0.5)] flex items-center gap-6 pointer-events-auto transition-all duration-300 hover:scale-105">
+          <div className="flex items-center gap-2.5">
+            <div className="relative flex items-center justify-center">
+               <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping absolute opacity-75"></div>
+               <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 relative shadow-[0_0_10px_rgba(16,185,129,0.8)]"></div>
+            </div>
+            <span className="text-[9px] font-black text-emerald-400 uppercase tracking-[0.2em] whitespace-nowrap">CHANDRIKA HOSPITAL</span>
+          </div>
+          
+          <div className="w-[1px] h-3 bg-white/10"></div>
+          
+          <div className="flex items-center gap-4">
+            <p className="text-[9px] font-black text-white/40 uppercase tracking-[0.3em] whitespace-nowrap">
+            PATIENT MANAGEMENT SYSTEM • <span className="text-indigo-400">V1.0</span>
+            </p>
+          </div>
+        </div>
+      </footer>
 
       <AddPatientModal 
         isOpen={isAddModalOpen} 

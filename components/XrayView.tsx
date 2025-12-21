@@ -1,13 +1,14 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Patient, XrayData, CLINIC_CONFIG } from '../types';
-import { XrayIcon, CheckCircleIcon, ClockIcon, ActivityIcon, DownloadIcon } from './Icons';
+import { XrayIcon, CheckCircleIcon, ClockIcon, ActivityIcon, DownloadIcon, ScansIcon } from './Icons';
 import { analyzeXrayImage } from '../services/geminiService';
 
 interface XrayViewProps {
   patient: Patient;
   onUpdateXray: (updatedXray: XrayData) => void;
   onBack: () => void;
+  availableFilms: number;
 }
 
 const RADIOLOGY_REGIONS = [
@@ -17,14 +18,23 @@ const RADIOLOGY_REGIONS = [
   { name: "Lower Limb", parts: ["Hip", "Femur", "Knee", "Leg", "Ankle", "Foot"], bilateral: true }
 ];
 
-const XrayView: React.FC<XrayViewProps> = ({ patient, onUpdateXray, onBack }) => {
+const XrayView: React.FC<XrayViewProps> = ({ patient, onUpdateXray, onBack, availableFilms }) => {
   const xray = patient.xrayData || { issue: '', bodyParts: [], status: 'ordered', orderDate: new Date().toISOString() };
   
   const [issue, setIssue] = useState(xray.issue);
   const [selectedParts, setSelectedParts] = useState<string[]>(xray.bodyParts);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [language, setLanguage] = useState<'en' | 'mr'>('en');
+  const [filmsToUse, setFilmsToUse] = useState<number>(xray.filmsUsedCount || Math.max(1, selectedParts.length));
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (xray.status === 'ordered') {
+      setFilmsToUse(Math.max(1, selectedParts.length));
+    }
+  }, [selectedParts.length, xray.status]);
 
   const togglePart = (part: string, side?: 'L' | 'R') => {
     const label = side ? `${part} (${side})` : part;
@@ -36,6 +46,11 @@ const XrayView: React.FC<XrayViewProps> = ({ patient, onUpdateXray, onBack }) =>
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (availableFilms < filmsToUse) {
+        alert(`CRITICAL: Insufficient film stock. Required: ${filmsToUse}, Available: ${availableFilms}.`);
+        return;
+      }
+
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64String = reader.result as string;
@@ -44,7 +59,8 @@ const XrayView: React.FC<XrayViewProps> = ({ patient, onUpdateXray, onBack }) =>
           issue,
           bodyParts: selectedParts,
           imageUrl: base64String,
-          status: 'captured'
+          status: 'captured',
+          filmsUsedCount: filmsToUse
         });
       };
       reader.readAsDataURL(file);
@@ -65,179 +81,142 @@ const XrayView: React.FC<XrayViewProps> = ({ patient, onUpdateXray, onBack }) =>
         status: 'reported'
       });
     } catch (err: any) {
-      console.error("X-Ray Analysis failed:", err);
-      alert(`AI Analysis failed: ${err.message || 'Check your internet connection or API key configuration.'}`);
+      alert(`AI Analysis failed: ${err.message}`);
     } finally {
       setIsAnalyzing(false);
     }
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
-
-  const handleSave = () => {
-    onUpdateXray({
-      ...xray,
-      issue,
-      bodyParts: selectedParts
-    });
-  };
-
   const updateStatus = (status: XrayData['status']) => {
-    onUpdateXray({
-      ...xray,
-      issue,
-      bodyParts: selectedParts,
-      status
-    });
+    onUpdateXray({ ...xray, issue, bodyParts: selectedParts, status });
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-4 sm:p-6 animate-in fade-in duration-500 relative">
-      {/* Printable Area */}
-      <div className="hidden print:block print:absolute print:inset-0 bg-white p-12 font-serif text-black min-h-screen w-full z-50">
-        <div className="h-[2in]"></div>
-        <div className="grid grid-cols-3 gap-6 mb-4 pb-4 border-b border-slate-400">
-          <div>
-            <p className="text-[10px] text-slate-500 uppercase font-black mb-0.5">Patient Name</p>
-            <p className="text-base font-black uppercase tracking-tight">{patient.name}</p>
-          </div>
-          <div>
-            <p className="text-[10px] text-slate-500 uppercase font-black mb-0.5">Age / Phone</p>
-            <p className="text-base font-bold">{patient.age} Yrs / {patient.phone}</p>
-          </div>
-          <div className="text-right">
-            <p className="text-[10px] text-slate-500 uppercase font-black mb-0.5">Examination Date</p>
-            <p className="text-base font-bold">{new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
-          </div>
-          <div className="col-span-2 mt-1">
-            <p className="text-[10px] text-slate-500 uppercase font-black mb-0.5">Clinical Indication</p>
-            <p className="text-sm italic font-medium">{issue || patient.condition}</p>
-          </div>
-          <div className="text-right mt-1">
-            <p className="text-[10px] text-slate-500 uppercase font-black mb-0.5">Radiological Series</p>
-            <p className="text-sm font-bold">{selectedParts.join(', ') || 'Standard Series'}</p>
-          </div>
-        </div>
+    <div className="max-w-6xl mx-auto p-4 sm:p-6 animate-in fade-in duration-500 relative pb-24">
+      {/* Custom Styles for Scanning Animation */}
+      <style>{`
+        @keyframes scanline {
+          0% { top: 0%; opacity: 0.1; }
+          50% { opacity: 0.8; }
+          100% { top: 100%; opacity: 0.1; }
+        }
+        @keyframes flicker {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.3; }
+        }
+        .scan-line {
+          height: 3px;
+          background: linear-gradient(90deg, transparent, #6366f1, transparent);
+          box-shadow: 0 0 15px #6366f1;
+          position: absolute;
+          width: 100%;
+          animation: scanline 3s linear infinite;
+        }
+        .grid-overlay {
+          background-image: 
+            linear-gradient(rgba(99, 102, 241, 0.05) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(99, 102, 241, 0.05) 1px, transparent 1px);
+          background-size: 30px 30px;
+        }
+      `}</style>
 
-        <div className="mt-6">
-          <div className="text-[14px] leading-[1.6] whitespace-pre-wrap text-justify font-serif tracking-normal">
-            {xray.aiReport || "Report data pending AI analysis..."}
-          </div>
-        </div>
-
-        <div className="mt-20 flex justify-end">
-          <div className="text-center w-72 pt-4">
-             <div className="h-12 flex items-end justify-center mb-1">
-                <div className="w-40 border-b border-slate-200"></div>
-             </div>
-            <p className="text-sm font-black">{CLINIC_CONFIG.clinicianName}</p>
-            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-black">Consultant Radiologist</p>
-            <p className="text-[9px] text-slate-400 mt-0.5">{CLINIC_CONFIG.credentials}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Screen UI */}
       <div className="print:hidden">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div>
-            <button onClick={onBack} className="text-sm font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-1 mb-2">
-              ← Back to Dashboard
+            <button onClick={onBack} className="text-[10px] font-black uppercase tracking-widest text-indigo-600 hover:text-indigo-800 flex items-center gap-2 mb-3">
+              <span className="text-sm">←</span> Return to Dashboard
             </button>
-            <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-bold text-slate-900">Radiology Order</h1>
-              <span className="bg-indigo-100 text-indigo-700 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-tighter">Diagnostic</span>
-            </div>
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-1">
-              <p className="text-slate-500 font-medium">{patient.name} • Age {patient.age}</p>
-              <span className="hidden sm:inline text-slate-300">|</span>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">
-                Clinician: <span className="text-slate-600">{CLINIC_CONFIG.clinicianName}</span>
-              </p>
+            <div className="flex items-center gap-4">
+              <h1 className="text-4xl font-black text-slate-900 tracking-tighter">Radiology Lab</h1>
+              <div className={`px-3 py-1 rounded-lg flex items-center gap-2 border ${availableFilms < 5 ? 'bg-red-50 border-red-100 text-red-600' : 'bg-emerald-50 border-emerald-100 text-emerald-600'}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${availableFilms < 5 ? 'bg-red-500 animate-pulse' : 'bg-emerald-500'}`}></span>
+                <span className="text-[10px] font-black uppercase tracking-widest">{availableFilms} Films In-Stock</span>
+              </div>
             </div>
           </div>
           <div className="flex gap-2">
             <button
-              onClick={handleSave}
-              className="px-5 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl font-bold hover:bg-slate-50 transition-all shadow-sm"
-            >
-              Save Progress
-            </button>
-            <button
               onClick={() => updateStatus('reported')}
-              className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100"
+              className="px-8 py-3 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-[11px] hover:bg-indigo-600 transition-all shadow-xl shadow-slate-200"
             >
-              Finalize Order
+              Commit & Discharge
             </button>
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-1 space-y-6">
-            <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
-              <h3 className="text-lg font-bold text-slate-800 mb-6">Workflow Status</h3>
+            <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm">
+              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6 px-1">Order Pipeline</h3>
               <div className="space-y-3">
                 {[
-                  { id: 'ordered', label: 'Ordered', color: 'orange', icon: <ClockIcon /> },
-                  { id: 'captured', label: 'Imaging Captured', color: 'blue', icon: <ActivityIcon /> },
-                  { id: 'reported', label: 'Report Generated', color: 'indigo', icon: <CheckCircleIcon /> }
+                  { id: 'ordered', label: '1. Order Entry', icon: <ClockIcon /> },
+                  { id: 'captured', label: '2. Imaging Asset', icon: <ActivityIcon /> },
+                  { id: 'reported', label: '3. Clinical Report', icon: <CheckCircleIcon /> }
                 ].map((step) => (
-                  <button
+                  <div
                     key={step.id}
-                    onClick={() => updateStatus(step.id as any)}
-                    className={`w-full flex items-center justify-between p-4 rounded-xl border transition-all ${
+                    className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${
                       xray.status === step.id 
-                      ? `border-${step.color}-200 bg-${step.color}-50 text-${step.color}-700` 
-                      : 'border-slate-50 bg-white text-slate-400'
+                      ? 'border-indigo-600 bg-indigo-50 text-indigo-700 shadow-md' 
+                      : 'border-slate-50 bg-slate-50/30 text-slate-400'
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      {step.icon}
-                      <span className="font-bold">{step.label}</span>
+                      <span className="font-black text-[11px] uppercase tracking-widest">{step.label}</span>
                     </div>
-                  </button>
+                    {xray.status === step.id && <div className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse"></div>}
+                  </div>
                 ))}
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
-              <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                <span className="w-8 h-8 rounded-lg bg-red-50 text-red-600 flex items-center justify-center font-black">!</span>
-                Clinical Indication
-              </h3>
-              <textarea
-                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                rows={3}
-                value={issue}
-                onChange={(e) => setIssue(e.target.value)}
-              />
+            <div className="bg-slate-900 rounded-[2.5rem] p-8 border border-white/5 shadow-2xl">
+              <h3 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-4">Film Allocation</h3>
+              <div className="space-y-4">
+                <div className="bg-white/5 rounded-2xl p-5 border border-white/10">
+                   <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Films for Capture</span>
+                      <div className="flex items-center gap-3">
+                        <button 
+                          disabled={xray.status !== 'ordered'}
+                          onClick={() => setFilmsToUse(prev => Math.max(1, prev - 1))}
+                          className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-white hover:bg-white/20 disabled:opacity-30"
+                        >-</button>
+                        <span className="text-lg font-black text-white">{filmsToUse}</span>
+                        <button 
+                          disabled={xray.status !== 'ordered' || filmsToUse >= availableFilms}
+                          onClick={() => setFilmsToUse(prev => prev + 1)}
+                          className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-white hover:bg-white/20 disabled:opacity-30"
+                        >+</button>
+                      </div>
+                   </div>
+                </div>
+              </div>
             </div>
 
-            <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
-              <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                <XrayIcon />
-                Radiology Grid
-              </h3>
-              <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+            <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm">
+              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 px-1">Projection Grid</h3>
+              <div className="space-y-4 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
                 {RADIOLOGY_REGIONS.map(region => (
                   <div key={region.name}>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{region.name}</p>
-                    <div className="flex flex-wrap gap-2">
+                    <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-2 opacity-60">{region.name}</p>
+                    <div className="flex flex-wrap gap-1.5">
                       {region.parts.map(part => (
                         <div key={part} className="flex gap-1">
                           {region.bilateral ? (
                             <>
                               <button
                                 onClick={() => togglePart(part, 'L')}
-                                className={`px-2 py-1.5 rounded-lg border text-[10px] font-bold uppercase transition-all ${selectedParts.includes(`${part} (L)`) ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm' : 'border-slate-100 bg-slate-50 text-slate-500'}`}
+                                disabled={xray.status !== 'ordered'}
+                                className={`px-2 py-1.5 rounded-xl border text-[9px] font-black uppercase transition-all ${selectedParts.includes(`${part} (L)`) ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-100 bg-slate-50 text-slate-400'} disabled:opacity-50`}
                               >
                                 {part} (L)
                               </button>
                               <button
                                 onClick={() => togglePart(part, 'R')}
-                                className={`px-2 py-1.5 rounded-lg border text-[10px] font-bold uppercase transition-all ${selectedParts.includes(`${part} (R)`) ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm' : 'border-slate-100 bg-slate-50 text-slate-500'}`}
+                                disabled={xray.status !== 'ordered'}
+                                className={`px-2 py-1.5 rounded-xl border text-[9px] font-black uppercase transition-all ${selectedParts.includes(`${part} (R)`) ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-100 bg-slate-50 text-slate-400'} disabled:opacity-50`}
                               >
                                 {part} (R)
                               </button>
@@ -245,7 +224,8 @@ const XrayView: React.FC<XrayViewProps> = ({ patient, onUpdateXray, onBack }) =>
                           ) : (
                             <button
                               onClick={() => togglePart(part)}
-                              className={`px-2 py-1.5 rounded-lg border text-[10px] font-bold uppercase transition-all ${selectedParts.includes(part) ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm' : 'border-slate-100 bg-slate-50 text-slate-500'}`}
+                              disabled={xray.status !== 'ordered'}
+                              className={`px-3 py-1.5 rounded-xl border text-[9px] font-black uppercase transition-all ${selectedParts.includes(part) ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-100 bg-slate-50 text-slate-400'} disabled:opacity-50`}
                             >
                               {part}
                             </button>
@@ -260,66 +240,120 @@ const XrayView: React.FC<XrayViewProps> = ({ patient, onUpdateXray, onBack }) =>
           </div>
 
           <div className="lg:col-span-2 space-y-6">
-            <div className="bg-slate-900 rounded-3xl overflow-hidden shadow-2xl relative min-h-[400px] flex items-center justify-center">
+            <div className="bg-slate-950 rounded-[2.5rem] overflow-hidden shadow-2xl relative min-h-[400px] flex items-center justify-center border border-white/5">
               {xray.imageUrl ? (
-                <div className="relative group w-full h-full">
-                  <img src={xray.imageUrl} alt="X-ray view" className="w-full h-full object-contain max-h-[600px]" />
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
-                    <button onClick={() => fileInputRef.current?.click()} className="bg-white/20 backdrop-blur-md text-white px-6 py-2 rounded-full font-bold border border-white/30">
-                      Replace Image
-                    </button>
-                  </div>
+                <div className="relative group w-full h-full flex items-center justify-center bg-black">
+                  <img src={xray.imageUrl} alt="X-ray view" className="max-w-full max-h-[600px] p-4 object-contain" />
+                  
+                  {/* Grid Overlay Always present on captured image */}
+                  <div className="absolute inset-0 grid-overlay pointer-events-none opacity-40"></div>
+                  
                   {isAnalyzing && (
-                    <div className="absolute inset-0 bg-indigo-900/60 backdrop-blur-sm flex flex-col items-center justify-center text-white p-6 text-center">
-                      <div className="w-16 h-16 border-4 border-white/20 border-t-white rounded-full animate-spin mb-4"></div>
-                      <h3 className="text-xl font-bold">Processing...</h3>
+                    <div className="absolute inset-0 bg-indigo-950/40 backdrop-blur-[2px] flex flex-col items-center justify-center text-white p-6 text-center z-10 overflow-hidden">
+                      <div className="scan-line"></div>
+                      
+                      <div className="absolute top-10 left-10 text-left space-y-2 pointer-events-none">
+                        <p className="text-[10px] font-black text-indigo-400 tracking-[0.3em] uppercase animate-pulse">Neural Path Analysis</p>
+                        <p className="text-[9px] font-mono text-white/40">LATENCY: 12ms</p>
+                        <p className="text-[9px] font-mono text-white/40">SYST: {CLINIC_CONFIG.shortName.toUpperCase()}-AI-V3</p>
+                      </div>
+
+                      <div className="absolute bottom-10 right-10 text-right space-y-1 pointer-events-none">
+                        <p className="text-[10px] font-black text-white/60">SCANNING {selectedParts[0] || 'REGION'}...</p>
+                        <div className="w-32 h-1 bg-white/10 rounded-full overflow-hidden">
+                           <div className="h-full bg-indigo-500 animate-[pulse_1.5s_infinite]"></div>
+                        </div>
+                      </div>
+
+                      <div className="relative z-20">
+                        <div className="w-16 h-16 border-4 border-indigo-500/20 border-t-indigo-400 rounded-full animate-spin mb-6 mx-auto"></div>
+                        <h3 className="text-xl font-black uppercase tracking-widest italic drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]">Synthesizing Report</h3>
+                      </div>
                     </div>
                   )}
+
+                  <div className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-4 backdrop-blur-[4px]">
+                    <p className="text-white text-[10px] font-black uppercase tracking-[0.3em] mb-2">Radiology Hub</p>
+                    <div className="flex gap-4">
+                      <button onClick={() => cameraInputRef.current?.click()} className="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-[10px] border border-white/20 hover:bg-indigo-700 transition-all">
+                        Camera
+                      </button>
+                      <button onClick={() => fileInputRef.current?.click()} className="bg-white/10 backdrop-blur-md text-white px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-[10px] border border-white/20 hover:bg-white/20 transition-all">
+                        Gallery
+                      </button>
+                    </div>
+                  </div>
                 </div>
               ) : (
-                <div className="text-center p-12">
-                  <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-6 text-indigo-400">
-                    <XrayIcon />
+                <div className="text-center p-16">
+                  <div className="w-24 h-24 bg-white/5 rounded-[2rem] flex items-center justify-center mx-auto mb-8 text-indigo-400 ring-1 ring-white/10 shadow-inner">
+                    <ScansIcon />
                   </div>
-                  <h3 className="text-xl font-bold text-white mb-2">Awaiting Imaging</h3>
-                  <button onClick={() => fileInputRef.current?.click()} className="bg-indigo-600 text-white px-8 py-3 rounded-2xl font-bold hover:bg-indigo-700 transition-all">
-                    Capture / Upload X-ray
-                  </button>
+                  <h3 className="text-2xl font-black text-white mb-3 uppercase tracking-tight">Image Acquisition</h3>
+                  <p className="text-white/40 text-[10px] font-black uppercase tracking-widest max-w-xs mx-auto mb-10 leading-relaxed">
+                    System ready. Choose input source:
+                  </p>
+                  
+                  <div className="flex flex-col sm:flex-row items-center justify-center gap-4 max-w-sm mx-auto">
+                    <button 
+                      disabled={filmsToUse > availableFilms}
+                      onClick={() => cameraInputRef.current?.click()} 
+                      className={`w-full px-8 py-5 rounded-3xl font-black uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-3 ${filmsToUse > availableFilms ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-2xl shadow-indigo-900'}`}
+                    >
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                      Open Camera
+                    </button>
+                    <button 
+                      disabled={filmsToUse > availableFilms}
+                      onClick={() => fileInputRef.current?.click()} 
+                      className={`w-full px-8 py-5 rounded-3xl font-black uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-3 ${filmsToUse > availableFilms ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-slate-800 text-white border border-white/10 hover:bg-slate-700'}`}
+                    >
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                      From Gallery
+                    </button>
+                  </div>
+
+                  {filmsToUse > availableFilms && (
+                    <p className="mt-6 text-[10px] font-black text-red-400 uppercase tracking-widest animate-pulse">Insufficient Film Inventory</p>
+                  )}
                 </div>
               )}
-              <input type="file" ref={fileInputRef} className="hidden" accept="image/*" capture="environment" onChange={handleFileUpload} />
+              
+              {/* Separate inputs for camera (with capture) and files (standard) */}
+              <input type="file" ref={cameraInputRef} className="hidden" accept="image/*" capture="environment" onChange={handleFileUpload} />
+              <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
             </div>
 
-            <div className="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+            <div className="bg-white rounded-[2.5rem] p-10 border border-slate-100 shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-8">
                 <div className="flex-1">
-                  <h3 className="text-2xl font-bold text-slate-900">Radiological Report</h3>
-                  <div className="mt-4 flex bg-slate-100 p-1 rounded-xl w-fit">
-                    <button onClick={() => setLanguage('en')} className={`px-4 py-1.5 rounded-lg text-xs font-bold ${language === 'en' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>English</button>
-                    <button onClick={() => setLanguage('mr')} className={`px-4 py-1.5 rounded-lg text-xs font-bold ${language === 'mr' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>मराठी</button>
+                  <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter italic">Clinical Synthesis</h3>
+                  <div className="mt-4 flex bg-slate-100 p-1 rounded-2xl w-fit border border-slate-200 shadow-inner">
+                    <button onClick={() => setLanguage('en')} className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${language === 'en' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>English</button>
+                    <button onClick={() => setLanguage('mr')} className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${language === 'mr' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>मराठी</button>
                   </div>
                 </div>
                 {xray.imageUrl && !isAnalyzing && (
-                  <button onClick={handleRunAI} className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100">
-                    ✨ Generate Analysis
+                  <button onClick={handleRunAI} className="px-8 py-3 bg-white border-2 border-slate-900 text-slate-900 rounded-2xl font-black uppercase tracking-widest text-[11px] hover:bg-slate-900 hover:text-white transition-all shadow-xl shadow-slate-100 flex items-center gap-2">
+                    <span className="text-lg">✨</span> Run AI Analysis
                   </button>
                 )}
               </div>
 
               {xray.aiReport ? (
-                <div className="prose prose-slate max-w-none">
-                  <div className="bg-slate-50 p-8 rounded-2xl border border-slate-200 font-mono text-sm whitespace-pre-wrap leading-relaxed">
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <div className="bg-slate-900 text-slate-300 p-10 rounded-[2rem] font-mono text-sm whitespace-pre-wrap leading-loose shadow-2xl border border-white/5">
                     {xray.aiReport}
                   </div>
-                  <div className="mt-8 flex justify-end">
-                     <button onClick={handlePrint} className="flex items-center gap-2 bg-slate-900 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-slate-800 transition-all shadow-lg">
-                       <DownloadIcon /> Print on Letterhead
+                  <div className="mt-10 flex justify-end">
+                     <button onClick={() => window.print()} className="flex items-center gap-3 bg-indigo-600 text-white px-10 py-4 rounded-2xl font-black uppercase tracking-widest text-[11px] hover:bg-indigo-700 transition-all shadow-2xl shadow-indigo-100">
+                       <DownloadIcon /> Print Report
                      </button>
                   </div>
                 </div>
               ) : (
-                <div className="py-20 text-center bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
-                  <p className="text-slate-400 italic">Imaging captured. Run analysis to create the report.</p>
+                <div className="py-24 text-center bg-slate-50/50 rounded-[2.5rem] border-2 border-dashed border-slate-200">
+                  <p className="text-slate-400 font-black uppercase tracking-widest text-xs italic">Awaiting radiological findings...</p>
                 </div>
               )}
             </div>

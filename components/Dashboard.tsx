@@ -1,22 +1,21 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Patient, CLINIC_CONFIG } from '../types';
 import { 
   UserPlusIcon, 
   ActivityIcon, 
   CheckCircleIcon, 
-  ChevronRightIcon, 
   PhoneIcon, 
   HistoryIcon, 
   SearchIcon, 
   DownloadIcon,
   XrayIcon,
   ClockIcon,
-  TrashIcon
+  TrashIcon,
+  CalendarIcon
 } from './Icons';
-import { Radar, RadarChart, PolarGrid, PolarAngleAxis, Tooltip, ResponsiveContainer, Radar as RadarComponent } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import * as XLSX from 'xlsx';
-import { analyzePainPatterns } from '../services/geminiService';
 
 interface DashboardProps {
   patients: Patient[];
@@ -42,8 +41,6 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [serviceFilter, setServiceFilter] = useState<'all' | 'physiotherapy' | 'x-ray'>('all');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
-  const [painData, setPainData] = useState<any[]>([]);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [addFilmValue, setAddFilmValue] = useState<string>('');
 
   const calculateProgress = (patient: Patient) => {
@@ -61,6 +58,28 @@ const Dashboard: React.FC<DashboardProps> = ({
     return Math.round((completedSessions / totalSessions) * 100);
   };
 
+  const performanceData = useMemo(() => {
+    let completed = 0;
+    let pending = 0;
+    let missed = 0;
+
+    patients.forEach(p => {
+      p.dailyPlans.forEach(plan => {
+        plan.sessions.forEach(s => {
+          if (s.status === 'completed') completed++;
+          else if (s.status === 'missed') missed++;
+          else pending++;
+        });
+      });
+    });
+
+    return [
+      { name: 'Completed', value: completed, color: '#10b981' },
+      { name: 'Pending', value: pending, color: '#6366f1' },
+      { name: 'Missed', value: missed, color: '#ef4444' }
+    ].filter(d => d.value > 0);
+  }, [patients]);
+
   const activePatients = patients.filter(p => p.status === 'active');
   const pastPatients = patients.filter(p => p.status === 'completed' || p.status === 'archived');
 
@@ -68,21 +87,6 @@ const Dashboard: React.FC<DashboardProps> = ({
   const totalXrayCount = patients.filter(p => p.serviceType === 'x-ray').length;
   const currentActiveCount = activePatients.length;
   const totalHistoryCount = pastPatients.length;
-
-  useEffect(() => {
-    const runAnalysis = async () => {
-      const physioConditions = patients.filter(p => p.serviceType === 'physiotherapy').map(p => p.condition);
-      if (physioConditions.length === 0) {
-        setPainData([]);
-        return;
-      }
-      setIsAnalyzing(true);
-      const results = await analyzePainPatterns(physioConditions);
-      setPainData(results);
-      setIsAnalyzing(false);
-    };
-    runAnalysis();
-  }, [patients.length]);
 
   const filteredPatients = useMemo(() => {
     const baseList = activeTab === 'active' ? activePatients : pastPatients;
@@ -103,12 +107,14 @@ const Dashboard: React.FC<DashboardProps> = ({
       );
     }
 
-    if (activeTab === 'history') {
-      if (fromDate) filtered = filtered.filter(p => p.startDate >= fromDate);
-      if (toDate) filtered = filtered.filter(p => p.startDate <= toDate);
+    if (fromDate) {
+      filtered = filtered.filter(p => (p.registrationDate || p.startDate) >= fromDate);
+    }
+    if (toDate) {
+      filtered = filtered.filter(p => (p.registrationDate || p.startDate) <= toDate);
     }
     
-    return filtered.sort((a, b) => b.startDate.localeCompare(a.startDate));
+    return filtered.sort((a, b) => (b.registrationDate || '').localeCompare(a.registrationDate || '') || (b.startDate || '').localeCompare(a.startDate || ''));
   }, [activeTab, activePatients, pastPatients, searchTerm, serviceFilter, fromDate, toDate]);
 
   const handleExportToExcel = () => {
@@ -121,6 +127,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       'Service': p.serviceType.toUpperCase(),
       'Condition/History': p.condition,
       'Status': p.status,
+      'Registration Date': p.registrationDate || 'N/A',
       'Progress %': calculateProgress(p),
       'Start Date': p.startDate,
       'End Date': p.endDate,
@@ -134,6 +141,13 @@ const Dashboard: React.FC<DashboardProps> = ({
   };
 
   const isLowStock = filmCount <= CLINIC_CONFIG.lowFilmThreshold;
+
+  const resetFilters = () => {
+    setSearchTerm('');
+    setServiceFilter('all');
+    setFromDate('');
+    setToDate('');
+  };
 
   return (
     <div className="max-w-6xl mx-auto p-4 sm:p-6 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -218,42 +232,86 @@ const Dashboard: React.FC<DashboardProps> = ({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-4">
-          <div className="flex flex-col gap-4 mb-2">
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-              <div className="flex bg-slate-200/50 p-1.5 rounded-2xl w-fit shadow-inner">
+        <div className="lg:col-span-2 space-y-6">
+          <div className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm space-y-6">
+            <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-6">
+              <div className="flex bg-slate-100 p-1 rounded-2xl w-fit shadow-inner">
                 <button
-                  onClick={() => { setActiveTab('active'); setServiceFilter('all'); }}
-                  className={`px-8 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === 'active' ? 'bg-white text-indigo-600 shadow-md' : 'text-slate-500 hover:text-slate-700'}`}
+                  onClick={() => { setActiveTab('active'); resetFilters(); }}
+                  className={`px-8 py-2.5 rounded-xl text-sm font-black transition-all uppercase tracking-widest ${activeTab === 'active' ? 'bg-white text-indigo-600 shadow-md' : 'text-slate-400 hover:text-slate-700'}`}
                 >
                   In-Care
                 </button>
                 <button
-                  onClick={() => { setActiveTab('history'); setServiceFilter('all'); }}
-                  className={`px-8 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === 'history' ? 'bg-white text-indigo-600 shadow-md' : 'text-slate-500 hover:text-slate-700'}`}
+                  onClick={() => { setActiveTab('history'); resetFilters(); }}
+                  className={`px-8 py-2.5 rounded-xl text-sm font-black transition-all uppercase tracking-widest ${activeTab === 'history' ? 'bg-white text-indigo-600 shadow-md' : 'text-slate-400 hover:text-slate-700'}`}
                 >
                   History
                 </button>
               </div>
               
-              <div className="relative flex-1 sm:max-w-xs">
-                <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-slate-400">
+              <div className="relative flex-1 md:max-w-xs">
+                <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-slate-400">
                   <SearchIcon />
                 </div>
                 <input
                   type="text"
                   placeholder="Patient name or ID..."
-                  className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-2xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all shadow-sm"
+                  className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-medium focus:ring-4 focus:ring-indigo-50 focus:bg-white outline-none transition-all"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
             </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end border-t border-slate-50 pt-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Dept Filter</label>
+                <select 
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold text-slate-700 focus:ring-2 focus:ring-indigo-500 outline-none"
+                  value={serviceFilter}
+                  onChange={(e) => setServiceFilter(e.target.value as any)}
+                >
+                  <option value="all">All Departments</option>
+                  <option value="physiotherapy">Physiotherapy</option>
+                  <option value="x-ray">Radiology (X-Ray)</option>
+                </select>
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">From Date</label>
+                <div className="relative">
+                  <input 
+                    type="date" 
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold text-slate-700 focus:ring-2 focus:ring-indigo-500 outline-none"
+                    value={fromDate}
+                    onChange={(e) => setFromDate(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">To Date</label>
+                <div className="relative">
+                  <input 
+                    type="date" 
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold text-slate-700 focus:ring-2 focus:ring-indigo-500 outline-none"
+                    value={toDate}
+                    onChange={(e) => setToDate(e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
           </div>
           
           {filteredPatients.length === 0 ? (
-            <div className="bg-white rounded-3xl p-16 text-center border-2 border-dashed border-slate-200">
-              <h3 className="text-xl font-bold text-slate-800">No records found</h3>
+            <div className="bg-white rounded-[2rem] p-24 text-center border-2 border-dashed border-slate-100 flex flex-col items-center">
+              <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center text-slate-200 mb-6">
+                <SearchIcon />
+              </div>
+              <h3 className="text-xl font-black text-slate-300 uppercase tracking-widest italic">Zero matches in database</h3>
+              <p className="text-slate-400 text-sm mt-2 font-medium">Try clearing filters or adjusting your search term.</p>
+              <button onClick={resetFilters} className="mt-8 text-indigo-600 text-xs font-black uppercase tracking-widest hover:underline">Clear all filters</button>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-5">
@@ -262,10 +320,12 @@ const Dashboard: React.FC<DashboardProps> = ({
                 
                 if (activeTab === 'history') {
                   return (
-                    <div key={patient.id} className="group bg-white rounded-[2rem] p-8 border border-slate-100 shadow-sm hover:shadow-2xl hover:border-indigo-100 transition-all border-l-8 border-l-slate-200 hover:border-l-indigo-500 relative">
-                      <div className="flex flex-col lg:flex-row gap-8">
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between mb-6">
+                    <div 
+                      key={patient.id} 
+                      className="group bg-white rounded-[2rem] p-8 border border-slate-100 shadow-sm hover:shadow-2xl hover:border-indigo-100 transition-all border-l-8 border-l-slate-200 hover:border-l-indigo-500 relative flex flex-col lg:flex-row gap-8"
+                    >
+                      <div className="flex-1 cursor-pointer" onClick={() => onSelectPatient(patient)}>
+                        <div className="flex items-center justify-between mb-6">
                              <div className="flex items-center gap-4">
                                 <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-sm ${patient.serviceType === 'x-ray' ? 'bg-blue-600 text-white' : 'bg-emerald-600 text-white'}`}>
                                   {patient.serviceType === 'x-ray' ? <XrayIcon /> : <ActivityIcon />}
@@ -274,49 +334,55 @@ const Dashboard: React.FC<DashboardProps> = ({
                                   <h3 className="text-2xl font-black text-slate-900 group-hover:text-indigo-600 transition-colors">
                                     {patient.name}
                                   </h3>
-                                  <span className="text-[10px] font-black uppercase text-indigo-500 bg-indigo-50 px-2.5 py-1 rounded-lg">ID: {patient.id.toUpperCase()}</span>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <span className="text-[10px] font-black uppercase text-indigo-500 bg-indigo-50 px-2.5 py-1 rounded-lg">ID: {patient.id.toUpperCase()}</span>
+                                    <span className="text-[10px] font-black uppercase text-slate-400">Reg: {patient.registrationDate || 'N/A'}</span>
+                                  </div>
                                 </div>
                              </div>
-                          </div>
-
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 p-6 bg-slate-50/80 rounded-3xl border border-slate-100/50">
-                            <div className="space-y-2">
-                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Period</p>
-                              <p className="text-sm font-bold text-slate-700">{patient.startDate} → {patient.endDate}</p>
-                            </div>
-                            <div className="space-y-2">
-                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Progress</p>
-                              <div className="flex items-center gap-3">
-                                <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
-                                  <div className="h-full bg-emerald-500" style={{ width: `${progress}%` }} />
-                                </div>
-                                <span className="text-xs font-black text-slate-600">{progress}%</span>
-                              </div>
-                            </div>
-                            <div className="space-y-2 lg:col-span-2">
-                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Clinical History</p>
-                              <p className="text-sm font-bold text-slate-800 truncate">{patient.condition}</p>
-                            </div>
-                          </div>
                         </div>
 
-                        <div className="shrink-0 flex lg:flex-col justify-end lg:justify-center gap-4 lg:border-l lg:pl-8 border-slate-100">
-                          <button 
-                            onClick={() => onSelectPatient(patient)}
-                            className="bg-slate-900 text-white px-8 py-4 rounded-[1.25rem] text-xs font-black uppercase tracking-widest hover:bg-indigo-600 transition-all shadow-xl shadow-slate-200 hover:shadow-indigo-200"
-                          >
-                            Clinical File
-                          </button>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 p-6 bg-slate-50/80 rounded-3xl border border-slate-100/50">
+                          <div className="space-y-2">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Period</p>
+                            <p className="text-sm font-bold text-slate-700">{patient.startDate} → {patient.endDate}</p>
+                          </div>
+                          <div className="space-y-2">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Progress</p>
+                            <div className="flex items-center gap-3">
+                              <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
+                                <div className="h-full bg-emerald-500" style={{ width: `${progress}%` }} />
+                              </div>
+                              <span className="text-xs font-black text-slate-600">{progress}%</span>
+                            </div>
+                          </div>
+                          <div className="space-y-2 lg:col-span-2">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Clinical History</p>
+                            <p className="text-sm font-bold text-slate-800 truncate">{patient.condition}</p>
+                          </div>
                         </div>
                       </div>
-                      
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); onDeletePatient(patient.id); }}
-                        className="absolute top-6 right-6 p-2.5 text-slate-200 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all opacity-0 group-hover:opacity-100"
-                        title="Delete Record"
-                      >
-                        <TrashIcon />
-                      </button>
+
+                      <div className="shrink-0 flex lg:flex-col justify-end lg:justify-center gap-4 lg:border-l lg:pl-8 border-slate-100">
+                        <button 
+                          onClick={() => onSelectPatient(patient)}
+                          className="bg-slate-900 text-white px-8 py-4 rounded-[1.25rem] text-xs font-black uppercase tracking-widest hover:bg-indigo-600 transition-all shadow-xl shadow-slate-200 hover:shadow-indigo-200"
+                        >
+                          View File
+                        </button>
+                        
+                        <button 
+                          onClick={(e) => { 
+                            e.stopPropagation(); 
+                            onDeletePatient(patient.id); 
+                          }}
+                          className="flex items-center justify-center gap-2 p-4 text-slate-400 opacity-60 hover:opacity-100 hover:text-red-600 hover:bg-red-50 rounded-2xl transition-all border border-transparent hover:border-red-100"
+                          title="Delete Record"
+                        >
+                          <TrashIcon />
+                          <span className="lg:hidden text-[10px] font-black uppercase">Delete</span>
+                        </button>
+                      </div>
                     </div>
                   );
                 }
@@ -337,9 +403,10 @@ const Dashboard: React.FC<DashboardProps> = ({
                           <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-lg text-[10px] font-black uppercase">{patient.condition}</span>
                           <span className="text-[10px] text-slate-300">•</span>
                           <span className="text-[10px] text-slate-400 font-bold">{patient.age} Yrs</span>
+                          <span className="text-[10px] text-slate-300">•</span>
+                          <span className="text-[10px] text-slate-400 font-bold">Reg: {patient.registrationDate || 'N/A'}</span>
                         </div>
                         
-                        {/* Projection Badges for X-Ray Patients */}
                         {patient.serviceType === 'x-ray' && patient.xrayData && (
                           <div className="mt-3 flex flex-wrap gap-1.5">
                             {(patient.xrayData.bodyParts || []).length > 0 ? (
@@ -381,8 +448,11 @@ const Dashboard: React.FC<DashboardProps> = ({
                       </button>
 
                       <button 
-                        onClick={(e) => { e.stopPropagation(); onDeletePatient(patient.id); }}
-                        className="p-3.5 rounded-2xl text-slate-200 hover:text-red-500 hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100"
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          onDeletePatient(patient.id); 
+                        }}
+                        className="p-3.5 rounded-2xl text-slate-400 opacity-20 group-hover:opacity-100 hover:text-red-600 hover:bg-red-50 transition-all border border-transparent hover:border-red-100"
                         title="Delete Record"
                       >
                         <TrashIcon />
@@ -429,25 +499,42 @@ const Dashboard: React.FC<DashboardProps> = ({
           </div>
 
           <div className="bg-white rounded-[2rem] p-8 border border-slate-100 shadow-sm relative overflow-hidden">
-            <h3 className="text-xl font-black text-slate-800 tracking-tight mb-6">Cohort Insights</h3>
-            {isAnalyzing ? (
-              <div className="h-[240px] flex items-center justify-center">
-                <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-              </div>
-            ) : painData.length === 0 ? (
+            <h3 className="text-xl font-black text-slate-800 tracking-tight mb-6">Treatment Performance</h3>
+            {performanceData.length === 0 ? (
               <div className="h-[240px] flex items-center justify-center text-slate-400 text-sm italic text-center">
-                Insufficient data for cohort analysis.
+                Insufficient clinical data for performance analysis.
               </div>
             ) : (
-              <div className="h-[240px] -mx-4">
-                <ResponsiveContainer width="100%" height="100%">
-                  <RadarChart cx="50%" cy="50%" outerRadius="75%" data={painData}>
-                    <PolarGrid stroke="#f1f5f9" />
-                    <PolarAngleAxis dataKey="subject" tick={{ fill: '#94a3b8', fontSize: 9, fontWeight: 900 }} />
-                    <RadarComponent name="Cases" dataKey="A" stroke="#4f46e5" fill="#4f46e5" fillOpacity={0.15} />
-                    <Tooltip />
-                  </RadarChart>
+              <div className="h-[240px] -mx-4 flex flex-col items-center">
+                <ResponsiveContainer width="100%" height="80%">
+                  <PieChart>
+                    <Pie
+                      data={performanceData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {performanceData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                      itemStyle={{ fontSize: '12px', fontWeight: 'bold' }}
+                    />
+                  </PieChart>
                 </ResponsiveContainer>
+                <div className="flex flex-wrap justify-center gap-4 mt-2">
+                  {performanceData.map((d) => (
+                    <div key={d.name} className="flex items-center gap-1.5">
+                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: d.color }}></div>
+                      <span className="text-[10px] font-black uppercase text-slate-500 tracking-tighter">{d.name} ({d.value})</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>

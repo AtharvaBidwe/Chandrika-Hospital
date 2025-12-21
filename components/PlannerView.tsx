@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useMemo, useEffect } from 'react';
 import { Patient, TherapySession, DailyPlan } from '../types';
 import { ClockIcon, CheckCircleIcon, XCircleIcon, PhoneIcon, HistoryIcon, ActivityIcon } from './Icons';
 import { suggestPhysioPlan } from '../services/geminiService';
@@ -22,31 +23,26 @@ const PlannerView: React.FC<PlannerViewProps> = ({ patient, onUpdatePlan, onBack
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
-  const generateDateRange = () => {
+  const dates = useMemo(() => {
     const start = new Date(patient.startDate);
     const end = new Date(patient.endDate);
-    const dates = [];
+    const datesArr = [];
     let current = new Date(start);
     
-    // Safety check to prevent infinite loops if dates are invalid
     let safetyCounter = 0;
     while (current <= end && safetyCounter < 365) {
-      dates.push(new Date(current).toISOString().split('T')[0]);
+      datesArr.push(new Date(current).toISOString().split('T')[0]);
       current.setDate(current.getDate() + 1);
       safetyCounter++;
     }
-    return dates;
-  };
+    return datesArr;
+  }, [patient.startDate, patient.endDate]);
 
-  const dates = generateDateRange();
-
-  // If the currently selected date is not in the generated range (e.g. range starts in the future),
-  // default to the first date in the range.
-  React.useEffect(() => {
+  useEffect(() => {
     if (dates.length > 0 && !dates.includes(selectedDate)) {
       setSelectedDate(dates[0]);
     }
-  }, [patient.startDate, patient.endDate]);
+  }, [dates, selectedDate]);
 
   const handleAddSession = (date: string) => {
     const newSession: TherapySession = {
@@ -111,7 +107,6 @@ const PlannerView: React.FC<PlannerViewProps> = ({ patient, onUpdatePlan, onBack
 
   const handleSuggestAI = async () => {
     setIsAiLoading(true);
-    // Determine treatment duration in days for the AI
     const durationDays = dates.length;
     const aiSuggestion = await suggestPhysioPlan(patient.condition, Math.ceil(durationDays / 7));
     
@@ -143,7 +138,10 @@ const PlannerView: React.FC<PlannerViewProps> = ({ patient, onUpdatePlan, onBack
     setIsAiLoading(false);
   };
 
-  const currentPlan = patient.dailyPlans.find(p => p.date === selectedDate);
+  const currentPlan = useMemo(() => 
+    patient.dailyPlans.find(p => p.date === selectedDate),
+    [patient.dailyPlans, selectedDate]
+  );
 
   return (
     <div className="max-w-6xl mx-auto p-4 sm:p-6 animate-in fade-in duration-500">
@@ -177,7 +175,6 @@ const PlannerView: React.FC<PlannerViewProps> = ({ patient, onUpdatePlan, onBack
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-        {/* Calendar Sidebar */}
         <div className="lg:col-span-1 space-y-3 max-h-[70vh] overflow-y-auto pr-4 custom-scrollbar">
           <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] px-2 mb-2 block">Treatment Calendar</label>
           {dates.map((date) => {
@@ -218,7 +215,6 @@ const PlannerView: React.FC<PlannerViewProps> = ({ patient, onUpdatePlan, onBack
           })}
         </div>
 
-        {/* Therapy Session Area */}
         <div className="lg:col-span-3 space-y-6">
           <div className="bg-white rounded-[2.5rem] p-10 border border-slate-100 shadow-sm">
             <div className="flex items-center justify-between mb-10">

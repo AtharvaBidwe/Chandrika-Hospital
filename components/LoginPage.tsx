@@ -58,7 +58,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onDemoLogin }) => {
               {CLINIC_CONFIG.name}
             </h1>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.4em] mt-2">
-              Clinical Operating System v1.2
+              Clinical Operating System v1.0
             </p>
           </div>
 
