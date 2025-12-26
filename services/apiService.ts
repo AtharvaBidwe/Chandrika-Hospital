@@ -17,9 +17,9 @@ const mapFromDb = (db: any): Patient => ({
   registrationDate: db.registration_date,
   startDate: db.start_date,
   endDate: db.end_date,
-  selectedDays: db.selected_days || [],
-  dailyPlans: db.daily_plans || [],
-  xrayData: db.xray_data
+  selectedDays: Array.isArray(db.selected_days) ? db.selected_days : (db.selected_days ? JSON.parse(db.selected_days) : []),
+  dailyPlans: Array.isArray(db.daily_plans) ? db.daily_plans : (db.daily_plans ? JSON.parse(db.daily_plans) : []),
+  xrayData: typeof db.xray_data === 'string' ? JSON.parse(db.xray_data) : db.xray_data
 });
 
 const mapToDb = (p: Patient, userId: string) => ({
@@ -35,7 +35,7 @@ const mapToDb = (p: Patient, userId: string) => ({
   registration_date: p.registrationDate,
   start_date: p.startDate,
   end_date: p.endDate,
-  selected_days: p.selectedDays,
+  selected_days: p.selectedDays, // Supabase handles jsonb arrays directly
   daily_plans: p.dailyPlans,
   xray_data: p.xrayData
 });
