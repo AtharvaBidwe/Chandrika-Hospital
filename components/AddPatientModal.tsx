@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
-import { Patient, ServiceType } from '../types';
-import { ActivityIcon, XrayIcon } from './Icons';
+import { Patient, ServiceType, DayOfWeek } from '../types';
+import { ActivityIcon, XrayIcon, CalendarIcon } from './Icons';
 
 interface AddPatientModalProps {
   isOpen: boolean;
@@ -16,6 +16,8 @@ const RADIOLOGY_REGIONS = [
   { name: "Lower Limb", parts: ["Hip", "Femur", "Knee", "Leg", "Ankle", "Foot"], bilateral: true }
 ];
 
+const DAYS_OF_WEEK: DayOfWeek[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
 const AddPatientModal: React.FC<AddPatientModalProps> = ({ isOpen, onClose, onAdd }) => {
   const systemDate = new Date().toISOString().split('T')[0];
   const [formData, setFormData] = useState({
@@ -25,13 +27,20 @@ const AddPatientModal: React.FC<AddPatientModalProps> = ({ isOpen, onClose, onAd
     address: '',
     condition: '',
     startDate: systemDate,
-    durationDays: '10',
+    durationWeeks: '2',
     serviceType: 'physiotherapy' as ServiceType,
   });
 
   const [selectedProjections, setSelectedProjections] = useState<string[]>([]);
+  const [selectedDays, setSelectedDays] = useState<DayOfWeek[]>(['Monday', 'Wednesday', 'Friday']);
 
   if (!isOpen) return null;
+
+  const toggleDay = (day: DayOfWeek) => {
+    setSelectedDays(prev => 
+      prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]
+    );
+  };
 
   const toggleProjection = (part: string, side?: 'L' | 'R') => {
     const label = side ? `${part} (${side})` : part;
@@ -44,9 +53,9 @@ const AddPatientModal: React.FC<AddPatientModalProps> = ({ isOpen, onClose, onAd
     e.preventDefault();
 
     const start = new Date(formData.startDate);
-    const days = parseInt(formData.durationDays) || 1;
+    const weeks = parseInt(formData.durationWeeks) || 1;
     const end = new Date(start);
-    end.setDate(start.getDate() + days - 1);
+    end.setDate(start.getDate() + (weeks * 7) - 1);
 
     onAdd({
       ...formData,
@@ -56,7 +65,7 @@ const AddPatientModal: React.FC<AddPatientModalProps> = ({ isOpen, onClose, onAd
       registrationDate: systemDate,
       endDate: end.toISOString().split('T')[0],
       dailyPlans: [],
-      selectedDays: [], // Simplified: no longer picking specific days
+      selectedDays: formData.serviceType === 'physiotherapy' ? selectedDays : [],
       xrayData: formData.serviceType === 'x-ray' ? {
         issue: formData.condition,
         bodyParts: selectedProjections,
@@ -68,9 +77,10 @@ const AddPatientModal: React.FC<AddPatientModalProps> = ({ isOpen, onClose, onAd
     onClose();
     setFormData({ 
       name: '', age: '', phone: '', address: '', condition: '', 
-      startDate: systemDate, durationDays: '10', serviceType: 'physiotherapy'
+      startDate: systemDate, durationWeeks: '2', serviceType: 'physiotherapy'
     });
     setSelectedProjections([]);
+    setSelectedDays(['Monday', 'Wednesday', 'Friday']);
   };
 
   const inputClasses = "w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl text-slate-900 text-sm font-medium placeholder:text-slate-400 focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all shadow-sm";
@@ -192,14 +202,30 @@ const AddPatientModal: React.FC<AddPatientModalProps> = ({ isOpen, onClose, onAd
 
           {formData.serviceType === 'physiotherapy' && (
             <div className="space-y-6 animate-in slide-in-from-top-4">
+              <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100">
+                <label className={labelClasses}>Select Visit Days</label>
+                <div className="flex flex-wrap gap-2 mt-4">
+                  {DAYS_OF_WEEK.map(day => (
+                    <button
+                      key={day}
+                      type="button"
+                      onClick={() => toggleDay(day)}
+                      className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${selectedDays.includes(day) ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'bg-white text-slate-400 border border-slate-100 hover:border-indigo-200'}`}
+                    >
+                      {day.slice(0, 3)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-6">
                 <div>
                   <label className={labelClasses}>Plan Start Date</label>
                   <input required type="date" className={inputClasses} value={formData.startDate} onChange={(e) => setFormData({ ...formData, startDate: e.target.value })} />
                 </div>
                 <div>
-                  <label className={labelClasses}>Treatment Course (Days)</label>
-                  <input required type="number" min="1" className={inputClasses} value={formData.durationDays} onChange={(e) => setFormData({ ...formData, durationDays: e.target.value })} />
+                  <label className={labelClasses}>Course Duration (Weeks)</label>
+                  <input required type="number" min="1" className={inputClasses} value={formData.durationWeeks} onChange={(e) => setFormData({ ...formData, durationWeeks: e.target.value })} />
                 </div>
               </div>
             </div>

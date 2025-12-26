@@ -17,7 +17,7 @@ const mapFromDb = (db: any): Patient => ({
   registrationDate: db.registration_date,
   startDate: db.start_date,
   endDate: db.end_date,
-  selectedDays: [], // Always empty as per user request
+  selectedDays: db.selected_days || [],
   dailyPlans: db.daily_plans || [],
   xrayData: db.xray_data
 });
@@ -35,13 +35,13 @@ const mapToDb = (p: Patient, userId: string) => ({
   registration_date: p.registrationDate,
   start_date: p.startDate,
   end_date: p.endDate,
+  selected_days: p.selectedDays,
   daily_plans: p.dailyPlans,
   xray_data: p.xrayData
 });
 
 export const apiService = {
   async getPatients(): Promise<Patient[]> {
-    // 1. Always check Local Storage first for immediate availability
     const local = localStorage.getItem(LOCAL_STORAGE_KEY);
     let patients: Patient[] = local ? JSON.parse(local) : [];
 
@@ -61,7 +61,6 @@ export const apiService = {
       
       const cloudPatients = (data || []).map(mapFromDb);
       
-      // Merge: Cloud takes priority if available
       if (cloudPatients.length > 0) {
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(cloudPatients));
         return cloudPatients;
@@ -74,7 +73,6 @@ export const apiService = {
   },
 
   async addPatient(patient: Patient): Promise<void> {
-    // 1. Save Locally Immediately
     const local = await this.getPatients();
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify([patient, ...local]));
 
@@ -89,6 +87,7 @@ export const apiService = {
       if (error) throw error;
     } catch (e) {
       console.error("Cloud Save Failed:", e);
+      throw e;
     }
   },
 
@@ -106,6 +105,7 @@ export const apiService = {
       if (error) throw error;
     } catch (e) {
       console.error("Batch Cloud Sync Failed:", e);
+      throw e;
     }
   },
 
@@ -125,9 +125,13 @@ export const apiService = {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-          await supabase.from('patients').delete().eq('id', patientId).eq('user_id', user.id);
+          const { error } = await supabase.from('patients').delete().eq('id', patientId).eq('user_id', user.id);
+          if (error) throw error;
         }
-      } catch (e) { console.error(e); }
+      } catch (e) { 
+        console.error(e);
+        throw e;
+      }
     }
   },
 
@@ -148,8 +152,12 @@ export const apiService = {
     localStorage.setItem(LOCAL_FILM_KEY, count.toString());
     if (isSupabaseConfigured()) {
       try {
-        await supabase.from('clinical_settings').upsert({ key: 'film_count', value: count.toString() });
-      } catch (e) { console.error(e); }
+        const { error } = await supabase.from('clinical_settings').upsert({ key: 'film_count', value: count.toString() });
+        if (error) throw error;
+      } catch (e) { 
+        console.error(e);
+        throw e;
+      }
     }
   }
 };

@@ -3,7 +3,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#4f46e5">
+  <meta name="description" content="Professional Clinical Portal for Chandrika Hospital - Physiotherapy & Radiology Management">
   <title>Chandrika Hospital | Clinical Portal</title>
   
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='100' height='100' rx='28' fill='%230F172A' /%3E%3Ccircle cx='50' cy='50' r='32' stroke='%232563EB' stroke-width='4' stroke-dasharray='10 5' opacity='0.4' /%3E%3Crect x='44' y='28' width='12' height='44' rx='2' fill='white' /%3E%3Crect x='28' y='44' width='44' height='12' rx='2' fill='white' /%3E%3Ccircle cx='70' cy='30' r='6' fill='%2338BDF8' /%3E%3C/svg%3E">
@@ -11,14 +13,14 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    body { font-family: 'Inter', sans-serif; }
+    body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
     .custom-scrollbar::-webkit-scrollbar { width: 4px; }
     .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
     .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
 
     @media print {
       @page { 
-        margin-top: 6cm; /* Space for physical letterhead */
+        margin-top: 3.8cm;
         margin-bottom: 2cm;
         margin-left: 2cm;
         margin-right: 2cm;
@@ -30,9 +32,10 @@
         color: black !important;
         overflow: visible !important;
         height: auto !important;
+        font-size: 11pt;
       }
 
-      nav, footer, button, .no-print, .print-hidden, .bg-indigo-600, .bg-slate-900 {
+      nav, footer, button, .no-print, .print-hidden, .bg-indigo-600, .bg-slate-900, [role="status"], .ai-controls {
         display: none !important;
         visibility: hidden !important;
       }
@@ -44,19 +47,19 @@
         padding: 0 !important;
       }
 
-      /* Force report findings to be visible and black */
       .report-text {
         display: block !important;
         visibility: visible !important;
         color: black !important;
         background: white !important;
-        font-family: 'Courier New', Courier, monospace !important;
-        font-size: 12pt !important;
-        line-height: 1.8 !important;
+        font-family: "Times New Roman", Times, Georgia, serif !important;
+        font-size: 12.5pt !important;
+        line-height: 1.6 !important;
         white-space: pre-wrap !important;
         padding: 0 !important;
         border: none !important;
         margin-top: 1rem !important;
+        text-align: justify;
       }
 
       .report-container {
@@ -64,10 +67,18 @@
         box-shadow: none !important;
         display: block !important;
         width: 100% !important;
+        padding: 0 !important;
       }
 
       .grid { display: block !important; }
       .flex { display: block !important; }
+      
+      .patient-meta-print {
+        border-bottom: 1.5px solid #000 !important;
+        margin-bottom: 1.5rem !important;
+        padding-bottom: 0.8rem !important;
+        display: block !important;
+      }
     }
   </style>
 <script type="importmap">

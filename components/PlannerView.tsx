@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Patient, TherapySession, DailyPlan } from '../types';
-import { ClockIcon, CheckCircleIcon, XCircleIcon, PhoneIcon, HistoryIcon, ActivityIcon } from './Icons';
+import { Patient, TherapySession, DailyPlan, DayOfWeek } from '../types';
+import { ClockIcon, CheckCircleIcon, XCircleIcon, PhoneIcon, HistoryIcon, ActivityIcon, CalendarIcon } from './Icons';
 import { suggestPhysioPlan } from '../services/geminiService';
 
 interface PlannerViewProps {
@@ -107,17 +107,20 @@ const PlannerView: React.FC<PlannerViewProps> = ({ patient, onUpdatePlan, onBack
 
   const handleSuggestAI = async () => {
     setIsAiLoading(true);
-    const durationDays = dates.length;
-    const aiSuggestion = await suggestPhysioPlan(patient.condition, Math.ceil(durationDays / 7));
+    const durationWeeks = Math.ceil(dates.length / 7);
+    const aiSuggestion = await suggestPhysioPlan(patient.condition, durationWeeks, patient.selectedDays);
     
     if (aiSuggestion && aiSuggestion.length > 0) {
       let updatedPlans = [...patient.dailyPlans];
-      const startIndex = dates.indexOf(selectedDate);
       
-      aiSuggestion.forEach((suggestedDay: any, i: number) => {
-        const targetDate = dates[startIndex + i];
-        if (targetDate) {
-          const sessions: TherapySession[] = suggestedDay.sessions.map((s: any) => ({
+      // We need to map suggested days to actual dates in the calendar
+      // AI returns "Monday", "Tuesday", etc.
+      dates.forEach(date => {
+        const dayOfWeek = new Date(date).toLocaleDateString('en-US', { weekday: 'long' }) as DayOfWeek;
+        const suggestionForThisDayType = aiSuggestion.find((s: any) => s.dayName === dayOfWeek);
+        
+        if (suggestionForThisDayType) {
+          const sessions: TherapySession[] = suggestionForThisDayType.sessions.map((s: any) => ({
             id: Math.random().toString(36).substr(2, 9),
             name: s.name,
             duration: s.duration,
@@ -125,11 +128,17 @@ const PlannerView: React.FC<PlannerViewProps> = ({ patient, onUpdatePlan, onBack
             status: 'pending' as const
           }));
           
-          const existingIdx = updatedPlans.findIndex(p => p.date === targetDate);
+          const existingIdx = updatedPlans.findIndex(p => p.date === date);
           if (existingIdx > -1) {
-            updatedPlans[existingIdx] = { ...updatedPlans[existingIdx], sessions: [...updatedPlans[existingIdx].sessions, ...sessions] };
+            // Check if sessions already exist to avoid duplicates if user clicks twice
+            const alreadyHasThese = updatedPlans[existingIdx].sessions.some(existing => 
+              sessions.some(newS => newS.name === existing.name)
+            );
+            if (!alreadyHasThese) {
+              updatedPlans[existingIdx] = { ...updatedPlans[existingIdx], sessions: [...updatedPlans[existingIdx].sessions, ...sessions] };
+            }
           } else {
-            updatedPlans.push({ id: Math.random().toString(36).substr(2, 9), date: targetDate, sessions });
+            updatedPlans.push({ id: Math.random().toString(36).substr(2, 9), date, sessions });
           }
         }
       });
@@ -156,9 +165,21 @@ const PlannerView: React.FC<PlannerViewProps> = ({ patient, onUpdatePlan, onBack
               <PhoneIcon />
             </a>
           </div>
-          <div className="mt-2 flex items-center gap-4">
-             <span className="text-xs font-black uppercase tracking-widest text-slate-400">Diagnosis:</span>
-             <span className="px-3 py-1 bg-slate-900 text-white rounded-lg text-[10px] font-black uppercase tracking-widest">{patient.condition}</span>
+          <div className="mt-2 flex flex-wrap items-center gap-4">
+             <div className="flex items-center gap-2">
+                <span className="text-xs font-black uppercase tracking-widest text-slate-400">Diagnosis:</span>
+                <span className="px-3 py-1 bg-slate-900 text-white rounded-lg text-[10px] font-black uppercase tracking-widest">{patient.condition}</span>
+             </div>
+             {patient.selectedDays && patient.selectedDays.length > 0 && (
+               <div className="flex items-center gap-2">
+                  <span className="text-xs font-black uppercase tracking-widest text-slate-400">Visits:</span>
+                  <div className="flex gap-1">
+                    {patient.selectedDays.map(d => (
+                      <span key={d} className="px-2 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-[9px] font-black uppercase border border-indigo-100">{d.slice(0,3)}</span>
+                    ))}
+                  </div>
+               </div>
+             )}
           </div>
         </div>
         
@@ -182,21 +203,27 @@ const PlannerView: React.FC<PlannerViewProps> = ({ patient, onUpdatePlan, onBack
             const count = plan?.sessions.length || 0;
             const completed = plan?.sessions.filter(s => s.status === 'completed').length || 0;
             const isSelected = selectedDate === date;
+            const dayName = new Date(date).toLocaleDateString('en-US', { weekday: 'long' }) as DayOfWeek;
+            const isScheduledDay = patient.selectedDays?.includes(dayName);
             
             return (
               <button
                 key={date}
                 onClick={() => setSelectedDate(date)}
-                className={`w-full text-left p-4 rounded-3xl transition-all border ${
+                className={`w-full text-left p-4 rounded-3xl transition-all border relative overflow-hidden ${
                   isSelected 
                   ? 'bg-indigo-600 border-indigo-600 text-white shadow-2xl shadow-indigo-200 scale-[1.02]' 
                   : 'bg-white border-slate-100 text-slate-500 hover:border-indigo-200 hover:bg-slate-50'
                 }`}
               >
+                {isScheduledDay && !isSelected && (
+                  <div className="absolute top-0 right-0 w-2 h-full bg-indigo-500/20" title="Scheduled Visit Day"></div>
+                )}
+                
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className={`text-[10px] font-black uppercase tracking-widest mb-1 ${isSelected ? 'text-indigo-100' : 'text-slate-400'}`}>
-                      {new Date(date).toLocaleDateString('en-US', { weekday: 'long' })}
+                    <div className={`text-[10px] font-black uppercase tracking-widest mb-1 ${isSelected ? 'text-indigo-100' : isScheduledDay ? 'text-indigo-600' : 'text-slate-400'}`}>
+                      {dayName}
                     </div>
                     <div className="text-lg font-black tracking-tight">
                       {new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
@@ -222,7 +249,12 @@ const PlannerView: React.FC<PlannerViewProps> = ({ patient, onUpdatePlan, onBack
                 <h2 className="text-2xl font-black text-slate-900 tracking-tight italic uppercase">
                   Session Log — {new Date(selectedDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
                 </h2>
-                <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1">Multi-Therapy Daily Protocol</p>
+                <div className="flex items-center gap-2 mt-1">
+                   <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Multi-Therapy Daily Protocol</p>
+                   {patient.selectedDays?.includes(new Date(selectedDate).toLocaleDateString('en-US', { weekday: 'long' }) as DayOfWeek) && (
+                     <span className="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded text-[9px] font-black uppercase tracking-widest">Scheduled Day</span>
+                   )}
+                </div>
               </div>
               <button
                 onClick={() => handleAddSession(selectedDate)}

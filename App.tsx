@@ -16,6 +16,7 @@ const App: React.FC = () => {
   const [filmCount, setFilmCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [syncError, setSyncError] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   
   const [view, setView] = useState<'dashboard' | 'planner' | 'xray'>('dashboard');
@@ -64,6 +65,7 @@ const App: React.FC = () => {
 
   const refreshData = async () => {
     setIsSyncing(true);
+    setSyncError(false);
     try {
       const [loadedPatients, loadedFilms] = await Promise.all([
         apiService.getPatients(),
@@ -73,6 +75,7 @@ const App: React.FC = () => {
       setFilmCount(loadedFilms);
     } catch (err) {
       console.error("Data refresh failed:", err);
+      setSyncError(true);
     } finally {
       setIsSyncing(false);
     }
@@ -98,11 +101,13 @@ const App: React.FC = () => {
     setPatients(prev => [newPatient, ...prev]);
     setIsAddModalOpen(false);
     setIsSyncing(true);
+    setSyncError(false);
 
     try {
       await apiService.addPatient(newPatient);
     } catch (e) {
       console.warn("Sync failed. Stored locally.", e);
+      setSyncError(true);
     } finally {
       setIsSyncing(false);
     }
@@ -114,6 +119,7 @@ const App: React.FC = () => {
 
     if (window.confirm(`Delete record for "${patientToDelete.name}"?`)) {
       setIsSyncing(true);
+      setSyncError(false);
       try {
         setPatients(prev => prev.filter(p => p.id !== patientId));
         await apiService.deletePatient(patientId);
@@ -121,6 +127,8 @@ const App: React.FC = () => {
           setView('dashboard');
           setSelectedPatientId(null);
         }
+      } catch (e) {
+        setSyncError(true);
       } finally {
         setIsSyncing(false);
       }
@@ -130,12 +138,15 @@ const App: React.FC = () => {
   const handleUpdatePlan = async (updatedPlans: DailyPlan[]) => {
     if (!selectedPatientId) return;
     setIsSyncing(true);
+    setSyncError(false);
     try {
       const updatedList = patients.map(p => 
         p.id === selectedPatientId ? { ...p, dailyPlans: updatedPlans } : p
       );
       setPatients(updatedList);
       await apiService.savePatients(updatedList);
+    } catch (e) {
+      setSyncError(true);
     } finally {
       setIsSyncing(false);
     }
@@ -144,6 +155,7 @@ const App: React.FC = () => {
   const handleUpdateXray = async (updatedXray: XrayData) => {
     if (!selectedPatientId) return;
     setIsSyncing(true);
+    setSyncError(false);
     try {
       let currentFilms = filmCount;
       if (updatedXray.status !== 'ordered' && updatedXray.filmsUsedCount && !updatedXray.filmConsumed) {
@@ -159,6 +171,8 @@ const App: React.FC = () => {
       );
       setPatients(updatedList);
       await apiService.savePatients(updatedList);
+    } catch (e) {
+      setSyncError(true);
     } finally {
       setIsSyncing(false);
     }
@@ -166,9 +180,12 @@ const App: React.FC = () => {
 
   const handleUpdatePatientStatus = async (patientId: string, status: Patient['status']) => {
     setIsSyncing(true);
+    setSyncError(false);
     try {
       const updated = await apiService.updatePatient(patientId, { status });
       setPatients(updated);
+    } catch (e) {
+      setSyncError(true);
     } finally {
       setIsSyncing(false);
     }
@@ -176,10 +193,13 @@ const App: React.FC = () => {
 
   const handleAddFilms = async (count: number) => {
     setIsSyncing(true);
+    setSyncError(false);
     try {
       const newTotal = filmCount + count;
       setFilmCount(newTotal);
       await apiService.updateFilmCount(newTotal);
+    } catch (e) {
+      setSyncError(true);
     } finally {
       setIsSyncing(false);
     }
@@ -209,9 +229,9 @@ const App: React.FC = () => {
                 <span className="text-xl font-black text-[#0F172A] uppercase">{CLINIC_CONFIG.name}</span>
               </div>
               <div className="flex items-center gap-3">
-                <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
+                <span className={`w-1.5 h-1.5 rounded-full ${isOnline && !syncError ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
                 <span className="text-[9px] font-black uppercase text-slate-400">
-                  {isSyncing ? 'Syncing...' : isOnline ? 'Encrypted Link' : 'Offline'}
+                  {isSyncing ? 'Syncing...' : syncError ? 'Sync Failed - Working Locally' : isOnline ? 'Cloud Linked' : 'Offline'}
                 </span>
               </div>
             </div>
@@ -263,14 +283,14 @@ const App: React.FC = () => {
       </main>
 
       <footer className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 print:hidden pointer-events-none group">
-        <div className="bg-slate-900/95 backdrop-blur-2xl px-8 py-3 rounded-full border border-white/10 shadow-[0_15px_40px_rgba(0,0,0,0.5)] flex items-center gap-6 pointer-events-auto transition-all duration-300 hover:scale-105">
+        <div className={`backdrop-blur-2xl px-8 py-3 rounded-full border border-white/10 shadow-[0_15px_40px_rgba(0,0,0,0.5)] flex items-center gap-6 pointer-events-auto transition-all duration-300 hover:scale-105 ${syncError ? 'bg-red-950/95' : 'bg-slate-900/95'}`}>
           <div className="flex items-center gap-2.5">
             <div className="relative flex items-center justify-center">
-               <div className={`w-1.5 h-1.5 rounded-full ${isSyncing ? 'bg-indigo-400 animate-spin' : 'bg-emerald-500 animate-ping'} absolute opacity-75`}></div>
-               <div className={`w-1.5 h-1.5 rounded-full ${isSyncing ? 'bg-indigo-400' : 'bg-emerald-500'} relative shadow-[0_0_10px_rgba(16,185,129,0.8)]`}></div>
+               <div className={`w-1.5 h-1.5 rounded-full ${isSyncing ? 'bg-indigo-400 animate-spin' : syncError ? 'bg-red-400' : 'bg-emerald-500 animate-ping'} absolute opacity-75`}></div>
+               <div className={`w-1.5 h-1.5 rounded-full ${isSyncing ? 'bg-indigo-400' : syncError ? 'bg-red-400' : 'bg-emerald-500'} relative shadow-[0_0_10px_rgba(16,185,129,0.8)]`}></div>
             </div>
-            <span className={`text-[9px] font-black uppercase tracking-[0.2em] whitespace-nowrap ${isSyncing ? 'text-indigo-400' : 'text-emerald-400'}`}>
-              {isSyncing ? 'SYNCHRONIZING' : 'CHANDRIKA HOSPITAL'}
+            <span className={`text-[9px] font-black uppercase tracking-[0.2em] whitespace-nowrap ${isSyncing ? 'text-indigo-400' : syncError ? 'text-red-400' : 'text-emerald-400'}`}>
+              {isSyncing ? 'SYNCHRONIZING' : syncError ? 'CLOUD OFFLINE' : 'CHANDRIKA HOSPITAL'}
             </span>
           </div>
           

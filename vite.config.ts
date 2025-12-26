@@ -1,12 +1,15 @@
+
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig(({ mode }) => {
   // Load env vars from the current directory
-  const env = loadEnv(mode, process.cwd(), '');
+  // Fix: Property 'cwd' does not exist on type 'Process' - casting to any to access Node.js cwd() method
+  const env = loadEnv(mode, (process as any).cwd(), '');
   
   return {
     plugins: [react()],
+    base: './',
     define: {
       // Use process.env naming convention for compatibility with the existing codebase
       'process.env.API_KEY': JSON.stringify(env.API_KEY || ''),
